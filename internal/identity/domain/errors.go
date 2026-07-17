@@ -11,4 +11,6 @@ var (
 	ErrEmailMismatch      = errors.New("email does not match token")
 	ErrAlreadyVerified    = errors.New("user already verified")
 	ErrUserNotFound       = errors.New("user not found")
+	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrAccountNotVerified = errors.New("account not verified")
 )

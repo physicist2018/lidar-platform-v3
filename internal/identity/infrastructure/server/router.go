@@ -12,6 +12,7 @@ func NewRouter(
 	registerHandler *RegisterHandler,
 	verifyHandler *VerifyHandler,
 	verifyLinkHandler *VerifyLinkHandler,
+	loginHandler *LoginHandler,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -24,6 +25,7 @@ func NewRouter(
 		r.Post("/register", registerHandler.ServeHTTP)
 		r.Post("/verify", verifyHandler.ServeHTTP)
 		r.Get("/verify", verifyLinkHandler.ServeHTTP)
+		r.Post("/login", loginHandler.ServeHTTP)
 	})
 
 	return r

@@ -7,13 +7,13 @@
 ```
 lidar-platform-v3/
 ├── cmd/                        # Точки входа микросервисов
-│   └── identity/               # Identity-сервис (регистрация, верификация)
+│   └── identity/               # Identity-сервис (регистрация, верификация, авторизация)
 ├── internal/
 │   └── identity/               # Внутренняя реализация identity
 │       ├── domain/             # Бизнес-сущности, value objects, ошибки
-│       ├── application/        # Use cases (Register, Verify)
-│       ├── ports/              # Интерфейсы (UserRepository, MailSender)
-│       └── infrastructure/     # Адаптеры (PostgreSQL, SMTP, HTTP)
+│       ├── application/        # Use cases (Register, Verify, Login)
+│       ├── ports/              # Интерфейсы (UserRepository, MailSender, TokenService)
+│       └── infrastructure/     # Адаптеры (PostgreSQL, SMTP, JWT, HTTP)
 ├── migrations/                 # SQL-миграции
 │   └── identity/
 ├── queries/                    # sqlc-запросы
@@ -61,6 +61,24 @@ API-верификация для фронтенда.
 { "message": "email verified successfully" }
 ```
 
+#### `POST /login`
+
+Авторизация пользователя. Возвращает JWT-токен (HS256) с `user_id` и `exp` (24ч).
+
+```json
+// Request
+{ "email": "user@example.com", "password": "secret123" }
+
+// 200 OK
+{ "token": "eyJhbGciOiJIUzI1NiIs..." }
+
+// 401 Unauthorized
+{ "error": "invalid email or password" }
+
+// 403 Forbidden
+{ "error": "account not verified" }
+```
+
 ### Быстрый старт
 
 ```bash
@@ -68,14 +86,15 @@ API-верификация для фронтенда.
 docker compose up -d postgres
 
 # 2. Применить миграцию
-docker compose exec -T postgres psql -U user -d main_db -f migrations/identity/001_create_users.sql
+docker compose exec -T postgres psql -U user -d main_db \
+  -f migrations/identity/001_create_users.sql
 
 # 3. Выдать права identity_user (первый раз)
 docker compose exec -T postgres psql -U user -d main_db \
   -c "GRANT ALL ON ALL TABLES IN SCHEMA identity TO identity_user;"
 
 # 4. Запустить сервис
-SMTP_FROM=noreply@example.com go run ./cmd/identity/
+JWT_SECRET="your-secret" SMTP_FROM=noreply@example.com go run ./cmd/identity/
 
 # 5. Проверить
 curl -X POST http://localhost:8080/register \
@@ -89,6 +108,7 @@ curl -X POST http://localhost:8080/register \
 |---|---|---|
 | `DATABASE_URL` | `postgresql://identity_user:pass@localhost:5432/main_db?...` | Подключение к БД |
 | `HTTP_ADDR` | `:8080` | Порт HTTP-сервера |
+| `JWT_SECRET` | случайный (нестабильный) | Секрет для подписи JWT |
 | `SMTP_SERVER` | — | SMTP-сервер (напр. `smtp.yandex.ru:465`) |
 | `SMTP_USERNAME` | — | Логин для SMTP |
 | `SMTP_PASSWORD` | — | Пароль для SMTP |

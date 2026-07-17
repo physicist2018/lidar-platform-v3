@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -64,6 +65,11 @@ func NewPendingUser(email Email, password Password) User {
 		CreatedAt:         time.Now(),
 		UpdatedAt:         time.Now(),
 	}
+}
+
+// ComparePassword checks whether the given plain-text password matches the stored hash.
+func (u *User) ComparePassword(plain string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(plain)) == nil
 }
 
 // Verify transitions the user from pending to active.

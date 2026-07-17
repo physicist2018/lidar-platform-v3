@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"log"
 	"net/http"
 	"os"
@@ -9,6 +11,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/application"
+	"github.com/physcist2018/lidar-platform-v3/internal/identity/infrastructure/auth"
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/infrastructure/mail"
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/infrastructure/repository"
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/infrastructure/server"
@@ -49,9 +52,20 @@ func main() {
 	}
 	mailSender := mail.NewSmtpMailSender(smtpCfg)
 
+	// JWT token service
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		b := make([]byte, 32)
+		rand.Read(b) // nolint: errcheck
+		jwtSecret = hex.EncodeToString(b)
+		log.Println("WARNING: JWT_SECRET not set, using ephemeral secret — tokens will be invalidated on restart")
+	}
+	tokenService := auth.NewJWTTokenService(jwtSecret)
+
 	// Use cases
 	registerUC := application.NewRegisterUseCase(userRepo, mailSender)
 	verifyUC := application.NewVerifyUseCase(userRepo)
+	loginUC := application.NewLoginUseCase(userRepo, tokenService)
 
 	// HTTP server
 	frontendURL := os.Getenv("FRONTEND_URL")
@@ -59,7 +73,8 @@ func main() {
 	registerHandler := server.NewRegisterHandler(registerUC)
 	verifyHandler := server.NewVerifyHandler(verifyUC)
 	verifyLinkHandler := server.NewVerifyLinkHandler(verifyUC, frontendURL)
-	router := server.NewRouter(registerHandler, verifyHandler, verifyLinkHandler)
+	loginHandler := server.NewLoginHandler(loginUC)
+	router := server.NewRouter(registerHandler, verifyHandler, verifyLinkHandler, loginHandler)
 
 	addr := os.Getenv("HTTP_ADDR")
 	if addr == "" {
