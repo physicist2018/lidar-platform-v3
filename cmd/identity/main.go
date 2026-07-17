@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/infrastructure/repository"
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/infrastructure/server"
 )
+
+const dbRetries = 10
 
 func main() {
 	// Database
@@ -30,8 +33,17 @@ func main() {
 	}
 	defer dbConn.Close()
 
-	if err := dbConn.Ping(); err != nil {
-		log.Fatalf("failed to ping database: %v", err)
+	// Retry ping with backoff — the database may still be starting up.
+	var pingErr error
+	for i := 0; i < dbRetries; i++ {
+		if pingErr = dbConn.Ping(); pingErr == nil {
+			break
+		}
+		if i == dbRetries-1 {
+			log.Fatalf("failed to ping database after %d attempts: %v", dbRetries, pingErr)
+		}
+		log.Printf("waiting for database... (%d/%d)", i+1, dbRetries)
+		time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
 	}
 	log.Println("connected to database")
 
