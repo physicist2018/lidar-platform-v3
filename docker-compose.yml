@@ -13,7 +13,9 @@ services:
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
 
   identity:
-    build: ./cmd/identity
+    build:
+      context: .
+      dockerfile: cmd/identity/Dockerfile
     ports:
       - "8080:8080"
     environment:
@@ -21,11 +23,11 @@ services:
       HTTP_ADDR: :8080
       JWT_SECRET: change-me-in-production
       SMTP_SERVER: smtp.yandex.ru:465
-      SMTP_USERNAME: your@yandex.ru
-      SMTP_PASSWORD: your-app-password
-      SMTP_FROM: noreply@yourdomain.com
-      VERIFY_BASE_URL: https://identity.yourdomain.com
-      FRONTEND_URL: https://frontend.yourdomain.com
+      SMTP_USERNAME: physicist2018@yandex.ru
+      SMTP_PASSWORD: arsyetydmdertfey
+      SMTP_FROM: physicist2018@yandex.ru
+      VERIFY_BASE_URL: http://localhost:8080
+      FRONTEND_URL: http://localhost:8090
     depends_on:
       - postgres
 
