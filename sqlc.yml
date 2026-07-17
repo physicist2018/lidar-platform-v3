@@ -1,0 +1,16 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "migrations/identity/*.sql"
+    queries: "queries/identity"
+    gen:
+      go:
+        package: "identity"
+        out: "pkg/db/identity"
+  - engine: "postgresql"
+    schema: "migrations/lidar/*.sql"
+    queries: "queries/lidar"
+    gen:
+      go:
+        package: "lidar"
+        out: "pkg/db/lidar"
