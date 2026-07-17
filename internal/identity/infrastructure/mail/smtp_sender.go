@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"mime"
 	"net"
 	"net/smtp"
 	"strconv"
@@ -59,8 +60,12 @@ func (s *SmtpMailSender) SendVerificationEmail(ctx context.Context, email, token
 		headerFrom = s.cfg.From
 	}
 
-	subject := "Subject: Подтверждение регистрации\r\n"
-	mime := "MIME-version: 1.0;\r\nContent-Type: text/html; charset=\"UTF-8\";\r\n\r\n"
+	// Encode the subject per RFC 2047 (B-encoding) to keep headers ASCII-only.
+	// Raw UTF-8 in headers can trigger SMTPUTF8 requirement on delivery.
+	subject := fmt.Sprintf("Subject: %s\r\n",
+		mime.BEncoding.Encode("utf-8", "Подтверждение регистрации"))
+
+	mimeHeader := "MIME-version: 1.0;\r\nContent-Type: text/html; charset=\"UTF-8\";\r\n\r\n"
 	body := fmt.Sprintf(`<h2>Подтверждение регистрации</h2>
 <p>Для завершения регистрации перейдите по ссылке:</p>
 <p><a href="%s">%s</a></p>
@@ -69,7 +74,7 @@ func (s *SmtpMailSender) SendVerificationEmail(ctx context.Context, email, token
 	msg := []byte("To: " + email + "\r\n" +
 		"From: " + headerFrom + "\r\n" +
 		"Reply-To: " + s.cfg.From + "\r\n" +
-		subject + mime +
+		subject + mimeHeader +
 		"\r\n" + body)
 
 	// Use the request context or a default timeout to avoid hanging.
