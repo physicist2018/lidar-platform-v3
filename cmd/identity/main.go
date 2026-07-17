@@ -10,6 +10,7 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/pressly/goose/v3"
 
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/application"
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/infrastructure/auth"
@@ -46,6 +47,17 @@ func main() {
 		time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
 	}
 	log.Println("connected to database")
+
+	// Run migrations
+	migrationsDir := os.Getenv("MIGRATIONS_DIR")
+	if migrationsDir == "" {
+		migrationsDir = "migrations/identity"
+	}
+	goose.SetDialect("postgres")
+	if err := goose.Up(dbConn, migrationsDir); err != nil {
+		log.Fatalf("migration failed: %v", err)
+	}
+	log.Println("migrations applied")
 
 	// Repositories
 	userRepo := repository.NewPostgresUserRepository(dbConn)

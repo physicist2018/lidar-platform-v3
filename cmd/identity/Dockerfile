@@ -9,5 +9,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /identity ./cmd/identity/
 FROM alpine:3.19
 RUN apk --no-cache add ca-certificates
 COPY --from=builder /identity /identity
+COPY --from=builder /app/migrations /migrations
 EXPOSE 8090
 CMD ["/identity"]

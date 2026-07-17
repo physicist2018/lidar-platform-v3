@@ -1,5 +1,4 @@
-CREATE SCHEMA IF NOT EXISTS identity;
-
+-- +goose Up
 CREATE TABLE IF NOT EXISTS identity.users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT NOT NULL UNIQUE,
@@ -13,3 +12,6 @@ CREATE TABLE IF NOT EXISTS identity.users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON identity.users (email);
 CREATE INDEX IF NOT EXISTS idx_users_verification_token ON identity.users (verification_token);
+
+-- +goose Down
+DROP TABLE IF EXISTS identity.users CASCADE;
