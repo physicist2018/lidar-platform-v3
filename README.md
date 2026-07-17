@@ -49,18 +49,6 @@ lidar-platform-v3/
 Верификация по ссылке из письма. Редиректит на `{FRONTEND_URL}/verified?status=ok`
 при успехе, или `?status=error&reason=...` при ошибке.
 
-#### `POST /verify`
-
-API-верификация для фронтенда.
-
-```json
-// Request
-{ "token": "...", "email": "user@example.com" }
-
-// 200 OK
-{ "message": "email verified successfully" }
-```
-
 #### `POST /login`
 
 Авторизация пользователя. Возвращает JWT-токен (HS256) с `user_id` и `exp` (24ч).

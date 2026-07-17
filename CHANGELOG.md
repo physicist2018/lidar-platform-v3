@@ -14,7 +14,6 @@
   Выдача JWT (HS256) с `user_id` и `exp` (24ч).
 - **Верификация по email** — `GET /verify?token=...&email=...` по ссылке из письма.
   Проверка токена, срока действия, совпадения email. Редирект на фронтенд.
-- **API-верификация** — `POST /verify` с JSON-телом для обратной совместимости.
 - **SMTP-отправка писем** — поддержка SMTPS (port 465, implicit TLS) и STARTTLS
   (ports 587/25). Graceful degradation при отсутствии конфигурации.
 - **Безопасность** — bcrypt для паролей, случайные токены (32 байта → hex),
@@ -23,6 +22,10 @@
 - **DDD-архитектура** — чёткое разделение domain / application / ports / infrastructure.
 - **Docker** — многоступенчатая сборка (`cmd/identity/Dockerfile`),
   `docker-compose.yml` с postgres и identity-сервисом.
+
+#### Removed
+
+- **POST /verify** — удалён в пользу `GET /verify` (ссылка из письма).
 
 #### Configuration
 

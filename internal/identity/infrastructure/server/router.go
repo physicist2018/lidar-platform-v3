@@ -10,7 +10,6 @@ import (
 // NewRouter creates and configures the chi router for the identity service.
 func NewRouter(
 	registerHandler *RegisterHandler,
-	verifyHandler *VerifyHandler,
 	verifyLinkHandler *VerifyLinkHandler,
 	loginHandler *LoginHandler,
 ) http.Handler {
@@ -23,7 +22,6 @@ func NewRouter(
 
 	r.Route("/", func(r chi.Router) {
 		r.Post("/register", registerHandler.ServeHTTP)
-		r.Post("/verify", verifyHandler.ServeHTTP)
 		r.Get("/verify", verifyLinkHandler.ServeHTTP)
 		r.Post("/login", loginHandler.ServeHTTP)
 	})

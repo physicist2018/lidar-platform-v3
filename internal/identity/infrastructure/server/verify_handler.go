@@ -1,59 +1,12 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/application"
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/domain"
 )
-
-type verifyRequest struct {
-	Token string `json:"token"`
-	Email string `json:"email"`
-}
-
-// VerifyHandler handles POST /verify (JSON API for frontend).
-type VerifyHandler struct {
-	uc *application.VerifyUseCase
-}
-
-// NewVerifyHandler creates a new VerifyHandler.
-func NewVerifyHandler(uc *application.VerifyUseCase) *VerifyHandler {
-	return &VerifyHandler{uc: uc}
-}
-
-func (h *VerifyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var req verifyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		RespondWithError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Token == "" || req.Email == "" {
-		RespondWithError(w, http.StatusBadRequest, "token and email are required")
-		return
-	}
-
-	if err := h.uc.Execute(r.Context(), req.Token, req.Email); err != nil {
-		switch {
-		case errors.Is(err, domain.ErrInvalidToken),
-			errors.Is(err, domain.ErrTokenExpired),
-			errors.Is(err, domain.ErrEmailMismatch):
-			RespondWithError(w, http.StatusBadRequest, "invalid or expired verification token")
-		case errors.Is(err, domain.ErrAlreadyVerified):
-			RespondWithError(w, http.StatusConflict, "user already verified")
-		default:
-			RespondWithError(w, http.StatusInternalServerError, "internal server error")
-		}
-		return
-	}
-
-	RespondWithJSON(w, http.StatusOK, map[string]string{
-		"message": "email verified successfully",
-	})
-}
 
 // VerifyLinkHandler handles GET /verify?token=...&email=... (link from email).
 // It verifies the token and redirects the browser to the frontend.

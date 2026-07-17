@@ -71,10 +71,9 @@ func main() {
 	frontendURL := os.Getenv("FRONTEND_URL")
 
 	registerHandler := server.NewRegisterHandler(registerUC)
-	verifyHandler := server.NewVerifyHandler(verifyUC)
 	verifyLinkHandler := server.NewVerifyLinkHandler(verifyUC, frontendURL)
 	loginHandler := server.NewLoginHandler(loginUC)
-	router := server.NewRouter(registerHandler, verifyHandler, verifyLinkHandler, loginHandler)
+	router := server.NewRouter(registerHandler, verifyLinkHandler, loginHandler)
 
 	addr := os.Getenv("HTTP_ADDR")
 	if addr == "" {
