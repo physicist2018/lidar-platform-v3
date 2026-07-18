@@ -1,4 +1,6 @@
 -- +goose Up
+CREATE SCHEMA IF NOT EXISTS identity;
+
 CREATE TABLE IF NOT EXISTS identity.users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT NOT NULL UNIQUE,

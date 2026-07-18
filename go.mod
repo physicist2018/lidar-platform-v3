@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/pressly/goose/v3 v3.27.2
+	github.com/sqlc-dev/pqtype v0.3.0
 	golang.org/x/crypto v0.54.0
 )
 

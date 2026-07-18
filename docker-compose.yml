@@ -12,9 +12,9 @@ services:
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d main_db"]
-      interval: 1s
-      retries: 15
-      start_period: 5s
+      interval: 10s
+      retries: 3
+      start_period: 50s
 
   identity:
     build:

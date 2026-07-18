@@ -1,1 +1,0 @@
--- placeholder: lidar schema (will be replaced later)

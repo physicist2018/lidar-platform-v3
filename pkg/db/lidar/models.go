@@ -3,3 +3,97 @@
 //   sqlc v1.31.1
 
 package lidar
+
+import (
+	"database/sql"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
+)
+
+type LidarAtmosphereProfile struct {
+	ID          uuid.UUID
+	Altitude    []float32
+	Temperature []float32
+	Pressure    []float32
+	CreatedAt   time.Time
+}
+
+type LidarExperiment struct {
+	ID                   uuid.UUID
+	Title                string
+	Comments             sql.NullString
+	ZenithAngle          float32
+	ExperimentStart      time.Time
+	ExperimentEnd        time.Time
+	Longitude            float32
+	Latitude             float32
+	AtmosphereProfileID  uuid.UUID
+	ExperimentsStorageID uuid.NullUUID
+	BackgroundStorageID  uuid.NullUUID
+	MeteoStorageID       uuid.NullUUID
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	DeletedAt            sql.NullTime
+}
+
+type LidarLicelProfile struct {
+	ID           uuid.UUID
+	LicelfileID  uuid.UUID
+	NDataPoints  int32
+	HighVoltage  float32
+	BinWidth     float32
+	Wavelength   float32
+	Polarization string
+	DeviceID     string
+	NShots       int32
+	DiscrLevel   float32
+	Data         []float32
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    sql.NullTime
+}
+
+type LidarLicelfile struct {
+	ID               uuid.UUID
+	ExperimentID     uuid.UUID
+	MeasurementStart time.Time
+	MeasurementStop  time.Time
+	NDatasets        int32
+	LaserFreq        int32
+	IsBackground     bool
+	RawStorageID     uuid.UUID
+	Filename         string
+	CreatedAt        time.Time
+	DeletedAt        sql.NullTime
+}
+
+type LidarPreparedMetum struct {
+	ID             uuid.UUID
+	ExperimentID   uuid.UUID
+	BackgroundType string
+	BackgroundFrom float32
+	TrimFrom       float32
+}
+
+type LidarPreparedProfile struct {
+	ID             uuid.UUID
+	PreparedMetaID uuid.UUID
+	LicelProfileID uuid.UUID
+	Data           []float32
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	DeletedAt      sql.NullTime
+}
+
+type LidarStorageObject struct {
+	ID          uuid.UUID
+	Bucket      string
+	Path        string
+	SizeBytes   sql.NullInt64
+	Etag        sql.NullString
+	ContentType sql.NullString
+	Metadata    pqtype.NullRawMessage
+	CreatedAt   time.Time
+}
