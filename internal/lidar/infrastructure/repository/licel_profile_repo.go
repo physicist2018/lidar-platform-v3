@@ -63,6 +63,20 @@ func (r *PostgresLicelProfileRepository) FindAllByLicelFileID(ctx context.Contex
 	return profiles, nil
 }
 
+// FindProfilesWithBackground returns signal profiles paired with their
+// matching background profiles for a given experiment.
+func (r *PostgresLicelProfileRepository) FindProfilesWithBackground(ctx context.Context, experimentID uuid.UUID) ([]domain.PairedProfile, error) {
+	rows, err := r.q.FindProfilesWithBackgroundByExperiment(ctx, experimentID)
+	if err != nil {
+		return nil, err
+	}
+	profiles := make([]domain.PairedProfile, len(rows))
+	for i, row := range rows {
+		profiles[i] = MapPairedProfile(row)
+	}
+	return profiles, nil
+}
+
 // SoftDelete marks a LICEL profile as deleted.
 func (r *PostgresLicelProfileRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	return r.q.SoftDeleteLicelProfile(ctx, id)
