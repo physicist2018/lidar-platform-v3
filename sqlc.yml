@@ -7,6 +7,8 @@ sql:
       go:
         package: "identity"
         out: "pkg/db/identity"
+        emit_json_tags: true
+        emit_prepared_queries: false
   - engine: "postgresql"
     schema: "migrations/lidar/*.sql"
     queries: "queries/lidar"
@@ -14,3 +16,5 @@ sql:
       go:
         package: "lidar"
         out: "pkg/db/lidar"
+        emit_json_tags: true
+        emit_prepared_queries: false

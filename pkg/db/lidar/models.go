@@ -13,87 +13,87 @@ import (
 )
 
 type LidarAtmosphereProfile struct {
-	ID          uuid.UUID
-	Altitude    []float32
-	Temperature []float32
-	Pressure    []float32
-	CreatedAt   time.Time
+	ID          uuid.UUID `json:"id"`
+	Altitude    []float64 `json:"altitude"`
+	Temperature []float64 `json:"temperature"`
+	Pressure    []float64 `json:"pressure"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type LidarExperiment struct {
-	ID                   uuid.UUID
-	Title                string
-	Comments             sql.NullString
-	ZenithAngle          float32
-	ExperimentStart      time.Time
-	ExperimentEnd        time.Time
-	Longitude            float32
-	Latitude             float32
-	AtmosphereProfileID  uuid.UUID
-	ExperimentsStorageID uuid.NullUUID
-	BackgroundStorageID  uuid.NullUUID
-	MeteoStorageID       uuid.NullUUID
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
-	DeletedAt            sql.NullTime
+	ID                   uuid.UUID      `json:"id"`
+	Title                string         `json:"title"`
+	Comments             sql.NullString `json:"comments"`
+	ZenithAngle          float32        `json:"zenith_angle"`
+	ExperimentStart      time.Time      `json:"experiment_start"`
+	ExperimentEnd        time.Time      `json:"experiment_end"`
+	Longitude            float32        `json:"longitude"`
+	Latitude             float32        `json:"latitude"`
+	AtmosphereProfileID  uuid.UUID      `json:"atmosphere_profile_id"`
+	ExperimentsStorageID uuid.NullUUID  `json:"experiments_storage_id"`
+	BackgroundStorageID  uuid.NullUUID  `json:"background_storage_id"`
+	MeteoStorageID       uuid.NullUUID  `json:"meteo_storage_id"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
+	DeletedAt            sql.NullTime   `json:"deleted_at"`
 }
 
 type LidarLicelProfile struct {
-	ID           uuid.UUID
-	LicelfileID  uuid.UUID
-	NDataPoints  int32
-	HighVoltage  float32
-	BinWidth     float32
-	Wavelength   float32
-	Polarization string
-	DeviceID     string
-	NShots       int32
-	DiscrLevel   float32
-	Data         []float32
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	DeletedAt    sql.NullTime
+	ID           uuid.UUID    `json:"id"`
+	LicelfileID  uuid.UUID    `json:"licelfile_id"`
+	NDataPoints  int32        `json:"n_data_points"`
+	HighVoltage  float32      `json:"high_voltage"`
+	BinWidth     float32      `json:"bin_width"`
+	Wavelength   float32      `json:"wavelength"`
+	Polarization string       `json:"polarization"`
+	DeviceID     string       `json:"device_id"`
+	NShots       int32        `json:"n_shots"`
+	DiscrLevel   float32      `json:"discr_level"`
+	Data         []float64    `json:"data"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
+	DeletedAt    sql.NullTime `json:"deleted_at"`
 }
 
 type LidarLicelfile struct {
-	ID               uuid.UUID
-	ExperimentID     uuid.UUID
-	MeasurementStart time.Time
-	MeasurementStop  time.Time
-	NDatasets        int32
-	LaserFreq        int32
-	IsBackground     bool
-	RawStorageID     uuid.UUID
-	Filename         string
-	CreatedAt        time.Time
-	DeletedAt        sql.NullTime
+	ID               uuid.UUID    `json:"id"`
+	ExperimentID     uuid.UUID    `json:"experiment_id"`
+	MeasurementStart time.Time    `json:"measurement_start"`
+	MeasurementStop  time.Time    `json:"measurement_stop"`
+	NDatasets        int32        `json:"n_datasets"`
+	LaserFreq        int32        `json:"laser_freq"`
+	IsBackground     bool         `json:"is_background"`
+	RawStorageID     uuid.UUID    `json:"raw_storage_id"`
+	Filename         string       `json:"filename"`
+	CreatedAt        time.Time    `json:"created_at"`
+	DeletedAt        sql.NullTime `json:"deleted_at"`
 }
 
 type LidarPreparedMetum struct {
-	ID             uuid.UUID
-	ExperimentID   uuid.UUID
-	BackgroundType string
-	BackgroundFrom float32
-	TrimFrom       float32
+	ID             uuid.UUID `json:"id"`
+	ExperimentID   uuid.UUID `json:"experiment_id"`
+	BackgroundType string    `json:"background_type"`
+	BackgroundFrom float32   `json:"background_from"`
+	TrimFrom       float32   `json:"trim_from"`
 }
 
 type LidarPreparedProfile struct {
-	ID             uuid.UUID
-	PreparedMetaID uuid.UUID
-	LicelProfileID uuid.UUID
-	Data           []float32
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	DeletedAt      sql.NullTime
+	ID             uuid.UUID    `json:"id"`
+	PreparedMetaID uuid.UUID    `json:"prepared_meta_id"`
+	LicelProfileID uuid.UUID    `json:"licel_profile_id"`
+	Data           []float32    `json:"data"`
+	CreatedAt      time.Time    `json:"created_at"`
+	UpdatedAt      time.Time    `json:"updated_at"`
+	DeletedAt      sql.NullTime `json:"deleted_at"`
 }
 
 type LidarStorageObject struct {
-	ID          uuid.UUID
-	Bucket      string
-	Path        string
-	SizeBytes   sql.NullInt64
-	Etag        sql.NullString
-	ContentType sql.NullString
-	Metadata    pqtype.NullRawMessage
-	CreatedAt   time.Time
+	ID          uuid.UUID             `json:"id"`
+	Bucket      string                `json:"bucket"`
+	Path        string                `json:"path"`
+	SizeBytes   sql.NullInt64         `json:"size_bytes"`
+	Etag        sql.NullString        `json:"etag"`
+	ContentType sql.NullString        `json:"content_type"`
+	Metadata    pqtype.NullRawMessage `json:"metadata"`
+	CreatedAt   time.Time             `json:"created_at"`
 }

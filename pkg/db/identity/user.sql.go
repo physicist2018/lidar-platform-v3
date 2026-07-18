@@ -19,11 +19,11 @@ RETURNING id, email, password_hash, status, verification_token, token_expires_at
 `
 
 type CreateUserParams struct {
-	Email             string
-	PasswordHash      string
-	Status            string
-	VerificationToken sql.NullString
-	TokenExpiresAt    sql.NullTime
+	Email             string         `json:"email"`
+	PasswordHash      string         `json:"password_hash"`
+	Status            string         `json:"status"`
+	VerificationToken sql.NullString `json:"verification_token"`
+	TokenExpiresAt    sql.NullTime   `json:"token_expires_at"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (IdentityUser, error) {
@@ -96,8 +96,8 @@ RETURNING id, email, password_hash, status, verification_token, token_expires_at
 `
 
 type UpdateUserStatusParams struct {
-	ID     uuid.UUID
-	Status string
+	ID     uuid.UUID `json:"id"`
+	Status string    `json:"status"`
 }
 
 func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) (IdentityUser, error) {

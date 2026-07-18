@@ -20,9 +20,9 @@ CREATE UNIQUE INDEX idx_storage_objects_bucket_path_unique ON lidar.storage_obje
 -- Профили атмосферы
 CREATE TABLE lidar.atmosphere_profiles (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    altitude        REAL[] NOT NULL,
-    temperature     REAL[] NOT NULL,
-    pressure        REAL[] NOT NULL,
+    altitude        DOUBLE PRECISION[] NOT NULL,
+    temperature     DOUBLE PRECISION[] NOT NULL,
+    pressure        DOUBLE PRECISION[] NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -93,7 +93,7 @@ CREATE TABLE lidar.licel_profiles (
 
     n_shots          INT NOT NULL,
     discr_level      REAL NOT NULL,
-    data             REAL[] NOT NULL,
+    data             DOUBLE PRECISION[] NOT NULL,
 
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),

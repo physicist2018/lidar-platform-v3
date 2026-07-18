@@ -12,12 +12,12 @@ import (
 )
 
 type IdentityUser struct {
-	ID                uuid.UUID
-	Email             string
-	PasswordHash      string
-	Status            string
-	VerificationToken sql.NullString
-	TokenExpiresAt    sql.NullTime
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                uuid.UUID      `json:"id"`
+	Email             string         `json:"email"`
+	PasswordHash      string         `json:"password_hash"`
+	Status            string         `json:"status"`
+	VerificationToken sql.NullString `json:"verification_token"`
+	TokenExpiresAt    sql.NullTime   `json:"token_expires_at"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
 }
