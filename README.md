@@ -4,32 +4,36 @@
 
 ---
 
-## Identity — микросервис аутентификации
-
-Регистрация, верификация email и JWT-авторизация.
-
-### Архитектура
+## Архитектура
 
 ```
 lidar-platform-v3/
-├── cmd/identity/                    # Точка входа
-│   ├── main.go                      # DI, запуск HTTP-сервера
-│   └── Dockerfile                   # Многоступенчатая сборка
-├── internal/identity/               # Бизнес-логика
-│   ├── domain/                      # Entity, Value Objects, errors
-│   ├── application/                 # Use cases (Register, Verify, Login)
-│   ├── ports/                       # Интерфейсы (repository, mail, token)
-│   └── infrastructure/              # Адаптеры
-│       ├── repository/              # PostgreSQL (через sqlc)
-│       ├── mail/                    # SMTP-отправка
-│       ├── auth/                    # JWT (HS256)
-│       └── server/                  # HTTP-роутер (chi), хендлеры
-├── migrations/identity/             # Goose-миграции
-├── queries/identity/                # sqlc-запросы
-├── pkg/db/identity/                 # sqlc-генерация
-├── docker-compose.yml               # postgres + identity
-├── init-db.sh                       # Инициализация БД (схемы, роли)
-└── sqlc.yml                         # Конфиг sqlc
+├── cmd/
+│   ├── identity/                    # Точка входа identity
+│   └── lidar/                       # Точка входа lidar (WIP)
+├── internal/
+│   ├── identity/                    # Бизнес-логика identity
+│   │   ├── domain/                  # Entity, Value Objects, errors
+│   │   ├── application/             # Use cases (Register, Verify, Login)
+│   │   ├── ports/                   # Интерфейсы (repository, mail, token)
+│   │   └── infrastructure/          # Адаптеры (PostgreSQL, SMTP, JWT, HTTP)
+│   └── lidar/                       # Бизнес-логика lidar
+│       ├── domain/                  # Entity, Value Objects, errors
+│       ├── application/             # Use cases (WIP)
+│       ├── ports/                   # Интерфейсы (repository, file storage)
+│       └── infrastructure/          # Адаптеры (PostgreSQL, MinIO/S3)
+├── migrations/
+│   ├── identity/                    # Goose-миграции identity
+│   └── lidar/                       # Goose-миграции lidar
+├── queries/
+│   ├── identity/                    # sqlc-запросы identity
+│   └── lidar/                       # sqlc-запросы lidar
+├── pkg/db/
+│   ├── identity/                    # sqlc-генерация identity
+│   └── lidar/                       # sqlc-генерация lidar
+├── docker-compose.yml               # postgres + identity + minio
+├── sqlc.yml                         # Конфиг sqlc
+└── init-db.sh                       # Инициализация БД (схемы, роли)
 ```
 
 ### Принципы (DDD + SOLID)
@@ -37,11 +41,15 @@ lidar-platform-v3/
 | Слой | Отвечает за | Зависит от |
 |---|---|---|
 | **domain** | Бизнес-правила, entity, value objects | ничего (чистый Go) |
-| **application** | Use cases (Register, Verify, Login) | `ports` (интерфейсы) |
-| **ports** | Контракты (UserRepository, MailSender, TokenService) | `domain` |
-| **infrastructure** | Реализации (PostgreSQL, SMTP, JWT, HTTP) | `ports` |
+| **application** | Use cases | `ports` (интерфейсы) |
+| **ports** | Контракты (репозитории, сервисы) | `domain` |
+| **infrastructure** | Реализации (PostgreSQL, SMTP, JWT, MinIO, HTTP) | `ports` |
 
 ---
+
+## Identity — микросервис аутентификации
+
+Регистрация, верификация email и JWT-авторизация.
 
 ### API
 
@@ -153,43 +161,11 @@ curl http://localhost:8090/protected-resource \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 ```
 
----
-
-### Быстрый старт
-
-```bash
-# 1. Запустить PostgreSQL
-docker compose up -d postgres
-
-# 2. Собрать и запустить identity
-docker compose up -d --build identity
-
-# 3. Проверить логи
-docker compose logs -f identity
-
-# 4. Протестировать
-curl -X POST http://localhost:8090/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"secret123"}'
-```
-
-#### Локально (без Docker)
-
-```bash
-# 1. Только БД в Docker
-docker compose up -d postgres
-
-# 2. Сервис локально
-JWT_SECRET="my-secret" go run ./cmd/identity/
-```
-
----
-
-### Конфигурация
+### Конфигурация identity
 
 | Переменная | По умолчанию | Обязательная | Описание |
 |---|---|---|---|
-| `DATABASE_URL` | `postgresql://identity_user:pass@localhost:5432/main_db?search_path=identity&sslmode=disable` | — | Подключение к PostgreSQL |
+| `DATABASE_URL` | `postgresql://identity_user:pass@localhost:5432/main_db?...` | — | Подключение к PostgreSQL |
 | `HTTP_ADDR` | `:8080` | — | Адрес HTTP-сервера |
 | `JWT_SECRET` | случайный (сгорает при рестарте) | **да** | Секрет для подписи JWT |
 | `MIGRATIONS_DIR` | `migrations/identity` | — | Путь к goose-миграциям |
@@ -202,107 +178,189 @@ JWT_SECRET="my-secret" go run ./cmd/identity/
 
 ---
 
-### Docker
+## Lidar — микросервис обработки LiDAR-данных
 
-```bash
-# Собрать образ
-docker compose build identity
+### Domain model
 
-# Запустить
-docker compose up -d identity
+#### StorageObject
 
-# Пересобрать и запустить
-docker compose up -d --build identity
+Реестр файлов в S3/MinIO. Хранит метаинформацию: bucket, path, размер, etag, content-type, metadata.
 
-# Логи
-docker compose logs -f identity
+```go
+type ObjectPath struct { Bucket, Path string }
+type StorageObject struct {
+    ID          uuid.UUID
+    Path        ObjectPath
+    Size        int64
+    ETag        string
+    ContentType string
+    Metadata    map[string]any
+    CreatedAt   time.Time
+}
 ```
 
-Образ основан на `alpine:3.19`, содержит только скомпилированный бинарник и миграции.
+#### Experiment
+
+LiDAR-эксперимент: временной диапазон, координаты, угол, профиль атмосферы, ссылки на файлы.
+
+```go
+type TimeRange struct { Start, End time.Time }
+type GeoLocation struct { Latitude, Longitude float32 }
+type Experiment struct {
+    ID                  uuid.UUID
+    Title               string
+    ZenithAngle         float32
+    TimeRange           TimeRange
+    GeoLocation         GeoLocation
+    AtmosphereProfileID uuid.UUID
+    StorageRefs         ExperimentStorageRefs
+    // + soft-delete: DeletedAt *time.Time
+}
+```
+
+#### AtmosphereProfile
+
+Вертикальный профиль атмосферы: высота, температура, давление.
+
+```go
+type AtmosphereProfile struct {
+    ID          uuid.UUID
+    Altitude    []float64   // км
+    Temperature []float64   // °C
+    Pressure    []float64   // гПа
+    CreatedAt   time.Time
+}
+```
+
+#### LicelFile
+
+Сырой LICEL-файл: принадлежит эксперименту, содержит метаданные измерения, ссылку на raw storage.
+
+```go
+type LicelFile struct {
+    ID               uuid.UUID
+    ExperimentID     uuid.UUID
+    MeasurementRange TimeRange
+    IsBackground     bool
+    RawStorageID     uuid.UUID
+    // + soft-delete
+}
+```
+
+#### LicelProfile
+
+Профиль из LICEL-файла: данные измерения, параметры устройства, длина волны, поляризация.
+
+```go
+type LicelProfile struct {
+    ID           uuid.UUID
+    LicelFileID  uuid.UUID
+    NDataPoints  int32
+    Data         []float64
+    Wavelength   float32
+    Polarization string
+    DeviceID     string
+    // + soft-delete
+}
+```
+
+#### PairedProfile
+
+Read model: сигнальный профиль + соответствующий фоновый (по device_id, wavelength, polarization).
+
+```go
+type PairedProfile struct {
+    Signal      ProfileData
+    Background  *ProfileData   // nil если фона нет
+    MatchStatus MatchStatus    // OK / NO_BACKGROUND / MISMATCH
+}
+```
+
+### File storage (MinIO/S3)
+
+```go
+type FileStorage interface {
+    CreateBucket(ctx, bucket) error
+    Upload(ctx, bucket, path, reader, size, contentType) error
+    UploadBytes(ctx, bucket, path, data, contentType) error
+    Download(ctx, bucket, path, writer) error
+    Delete(ctx, bucket, path) error
+    Exists(ctx, bucket, path) (bool, error)
+    GetInfo(ctx, bucket, path) (*ObjectInfo, error)
+    PresignedGetURL(ctx, bucket, path, expiry) (string, error)
+}
+```
+
+**MinIOFileStorage** — адаптер через `minio-go/v7`.
+
+**Config:**
+| Параметр | Описание |
+|---|---|
+| `Endpoint` | Адрес MinIO/S3 (e.g. `play.min.io`) |
+| `AccessKey` | Access key |
+| `SecretKey` | Secret key |
+| `UseSSL` | Использовать HTTPS |
+
+### Репозитории (PostgreSQL через sqlc)
+
+| Repository | Методы |
+|---|---|
+| `ExperimentRepository` | Create, FindByID, FindAll, Update, UpdateStorageRefs, SoftDelete, Restore |
+| `AtmosphereProfileRepository` | Create, FindByID, FindAll, Delete |
+| `LicelFileRepository` | Create, FindByID, FindAllByExperimentID, SoftDelete, Restore |
+| `LicelProfileRepository` | Create, FindByID, FindAllByLicelFileID, FindProfilesWithBackground, SoftDelete, Restore |
 
 ---
 
-### SMTP-настройки
-
-#### mail.ru / inbox.ru (STARTTLS, порт 587)
-
-| Параметр | Значение |
-|---|---|
-| `SMTP_SERVER` | `smtp.mail.ru:587` |
-| `SMTP_USERNAME` | полный email (user@inbox.ru) |
-| `SMTP_PASSWORD` | пароль приложения |
-| `SMTP_FROM` | полный email |
-
-#### Яндекс (SMTPS, порт 465)
-
-| Параметр | Значение |
-|---|---|
-| `SMTP_SERVER` | `smtp.yandex.ru:465` |
-| `SMTP_USERNAME` | полный email (user@yandex.ru) |
-| `SMTP_PASSWORD` | пароль приложения |
-| `SMTP_FROM` | полный email |
-
-> **Важно**: для Mail.ru и Яндекса используйте **пароль приложения**,
-> а не обычный пароль от почты.
-
----
-
-### Миграции (goose)
-
-Миграции запускаются автоматически при старте сервиса.
-Управление вручную (если нужно):
+## Docker
 
 ```bash
-# Установка goose
-go install github.com/pressly/goose/v3/cmd/goose@latest
+# Собрать и запустить всё
+docker compose up -d --build
 
+# Только identity
+docker compose up -d --build identity
+
+# Только БД
+docker compose up -d postgres
+```
+
+---
+
+## Миграции (goose)
+
+Миграции запускаются автоматически при старте сервиса.
+
+```bash
 # Статус миграций
 goose -dir migrations/identity postgres "$DATABASE_URL" status
-
-# Откатить последнюю
-goose -dir migrations/identity postgres "$DATABASE_URL" down
+goose -dir migrations/lidar postgres "$DATABASE_URL" status
 
 # Накатить все
 goose -dir migrations/identity postgres "$DATABASE_URL" up
+goose -dir migrations/lidar postgres "$DATABASE_URL" up
 ```
 
 ---
 
-### Разработка
+## Разработка
 
-#### Генерация sqlc
+### Генерация sqlc
 
 ```bash
 sqlc generate
 ```
 
-После изменений в `migrations/identity/*.sql` или `queries/identity/*.sql`.
+После изменений в `migrations/*.sql` или `queries/*.sql`.
 
-#### Добавление новой миграции
+### Добавление миграции
 
 ```sql
--- migrations/identity/002_something.sql
+-- migrations/lidar/002_name.sql
 
 -- +goose Up
-ALTER TABLE identity.users ADD COLUMN ...
+ALTER TABLE lidar.experiments ADD COLUMN ...
 
 -- +goose Down
-ALTER TABLE identity.users DROP COLUMN ...
+ALTER TABLE lidar.experiments DROP COLUMN ...
 ```
-
-#### Структура layers (DDD)
-
-| Пакет | Назначение | Пример |
-|---|---|---|
-| `domain/` | Бизнес-правила, независимые от инфраструктуры | `User`, `Email`, `Password`, `Verify()` |
-| `ports/` | Интерфейсы, которые реализует инфраструктура | `UserRepository`, `MailSender`, `TokenService` |
-| `application/` | Use cases, оркестрируют домен + порты | `RegisterUseCase`, `LoginUseCase` |
-| `infrastructure/` | Адаптеры к внешним системам | PostgreSQL, SMTP, JWT, chi |
-
-### Принципы
-
-- **DDD** — бизнес-логика изолирована от инфраструктуры
-- **sqlc** — типобезопасные SQL-запросы без ORM
-- **goose** — версионирование схемы БД, автозапуск при старте
-- **Graceful degradation** — без SMTP сервис работает, но логирует пропуск писем
-- **Reply-To** — письма приходят от реального ящика, ответы уходят на noreply

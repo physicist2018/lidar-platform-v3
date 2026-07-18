@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.1.0 (2026-07-19)
+
+### Lidar domain models + infrastructure
+
+Добавлены доменные модели и репозитории для LiDAR-сервиса.
+
+#### Added
+
+- **StorageObject** — domain model для реестра файлов в S3/MinIO (ObjectPath value object, metadata, functional options)
+- **MinIO/S3 FileStorage** — port + MinIO-адаптер (Upload, UploadBytes, Download, Delete, Exists, GetInfo, PresignedGetURL, CreateBucket)
+- **Experiment** — domain model (TimeRange, GeoLocation value objects, soft-delete lifecycle)
+- **ExperimentRepository** — port + Postgres-реализация через sqlc (CRUD, UpdateStorageRefs, SoftDelete, Restore)
+- **AtmosphereProfile** — domain model (массивы altitude, temperature, pressure с валидацией длины)
+- **AtmosphereProfileRepository** — port + Postgres-реализация
+- **LicelFile** — domain model (LICEL-файл эксперимента, reuse TimeRange, soft-delete)
+- **LicelFileRepository** — port + Postgres-реализация
+- **LicelProfile** — domain model (профиль из LICEL-файла, data array, PointAt, soft-delete)
+- **LicelProfileRepository** — port + Postgres-реализация, включая FindProfilesWithBackground
+- **PairedProfile** — read model для спаренных сигнал+фон с MatchStatus
+- **MapPairedProfile** — маппер из sqlc-строки в PairedProfile
+
+#### Changed
+
+- sqlc: добавлены RestoreLicelFile, RestoreLicelProfile, RestoreExperiment, UpdateExperimentStorageRefs
+- sqlc: исправлено именование LiceL → Licel, добавлен префикс lidar. в запросах
+
+---
+
 ## 1.0.0 (2026-07-17)
 
 ### Initial release — Identity microservice
