@@ -2,9 +2,9 @@
 
 ## 1.1.0 (2026-07-19)
 
-### Lidar domain models + infrastructure
+### Lidar domain models + infrastructure + services
 
-Добавлены доменные модели и репозитории для LiDAR-сервиса.
+Добавлены доменные модели, HTTP API, NATS, Worker для LiDAR-сервиса.
 
 #### Added
 
@@ -19,12 +19,42 @@
 - **LicelProfile** — domain model (профиль из LICEL-файла, data array, PointAt, soft-delete)
 - **LicelProfileRepository** — port + Postgres-реализация, включая FindProfilesWithBackground
 - **PairedProfile** — read model для спаренных сигнал+фон с MatchStatus
-- **MapPairedProfile** — маппер из sqlc-строки в PairedProfile
+- **NATS JetStream MessageQueue** — асинхронная публикация/подписка, дедупликация, durable consumer
+- **StorageObjectRepository** — port + Postgres-реализация для реестра файлов
+- **HTTP сервер (chi)** — роутер, JSON-хелперы, graceful shutdown
+- **POST /api/v1/experiments/create** — multipart endpoint: загрузка файлов в MinIO, создание StorageObject, создание Experiment, публикация в NATS
+- **POST /api/v1/experiments/task** — JSON-RPC endpoint: приём задачи с алгоритмом (KLETT_FERNALD и др.), публикация в NATS, возврат task_id
+- **Worker** — отдельный микросервис: подписка на NATS, диспатч задач по subject (parse, process)
+- **ParseExperimentHandler** — обработчик задач (заглушка)
+- **Bash-скрипт** — `scripts/create_experiment.sh` для тестирования API с файлами из `testdata/`
 
 #### Changed
 
 - sqlc: добавлены RestoreLicelFile, RestoreLicelProfile, RestoreExperiment, UpdateExperimentStorageRefs
 - sqlc: исправлено именование LiceL → Licel, добавлен префикс lidar. в запросах
+- **Experiment** — удалён AtmosphereProfileID (профиль создаётся после загрузки данных)
+- **Upload** — возвращает `ObjectInfo` (ETag, Size, ContentType)
+- **Config** — выделен в отдельный пакет `internal/lidar/config`
+- **init-db.sh** — добавлен `GRANT CREATE ON DATABASE` для identity_user и lidar_user
+- **docker-compose** — добавлены minio, nats сервисы, worker, проброшены все env
+
+#### Fixed
+
+- NATS consumer name — точки заменены на дефисы (sanitize)
+- goose миграции — работают через основное подключение (без DATABASE_URL_MIGRATIONS)
+
+#### Configuration
+
+| Переменная | Сервис | Назначение |
+|---|---|---|
+| `DATABASE_URL` | lidar, worker | PostgreSQL connection string |
+| `HTTP_ADDR` | lidar | Адрес HTTP-сервера |
+| `MIGRATIONS_DIR` | lidar | Путь к goose-миграциям |
+| `MINIO_ENDPOINT` | lidar, worker | MinIO endpoint |
+| `MINIO_ACCESS_KEY` | lidar, worker | MinIO access key |
+| `MINIO_SECRET_KEY` | lidar, worker | MinIO secret key |
+| `MINIO_USE_SSL` | lidar, worker | MinIO TLS |
+| `NATS_URL` | lidar, worker | NATS server |
 
 ---
 
@@ -44,29 +74,13 @@
   Выдача JWT (HS256) с `user_id` и `exp` (24ч).
 - **SMTP-отправка писем** — поддержка SMTPS (port 465, implicit TLS) и STARTTLS
   (ports 587/25). Graceful degradation при отсутствии конфигурации.
-- **Миграции через goose** — автоматический запуск при старте сервиса,
-  embedded-миграции в Docker-образе.
+- **Миграции через goose** — автоматический запуск при старте сервиса.
 - **Безопасность** — bcrypt для паролей, случайные токены (32 байта → hex),
   срок действия токена 24ч, `Reply-To` для запрета ответов.
   Subject письма encoded по RFC 2047 (без raw UTF-8 в заголовках).
 - **sqlc-генерация** — типобезопасные PostgreSQL-запросы.
 - **DDD-архитектура** — чёткое разделение domain / application / ports / infrastructure.
-- **Docker** — многоступенчатая сборка (`cmd/identity/Dockerfile`),
-  `docker-compose.yml` с postgres и identity-сервисом.
-
-#### Removed
-
-- **POST /verify** — удалён в пользу `GET /verify` (ссылка из письма).
-
-#### Fixed
-
-- **Docker build context** — изменён с `./cmd/identity` на корень проекта
-  для доступа к `go.mod` и миграциям.
-- **DB readiness** — retry ping с backoff (до 10 попыток) +
-  healthcheck на postgres + `condition: service_healthy`.
-- **SMTPUTF8** — заголовок Subject закодирован по RFC 2047 (B-encoding),
-  чтобы не требовать SMTPUTF8 при доставке.
-- **SMTP настройки** — переключение с порта 465 (SMTPS) на 587 (STARTTLS).
+- **Docker** — многоступенчатая сборка, docker-compose с postgres и identity.
 
 #### Configuration
 
@@ -74,11 +88,10 @@
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
 | `HTTP_ADDR` | Адрес HTTP-сервера (по умолч. `:8080`) |
-| `JWT_SECRET` | Секрет для подписи JWT (по умолч. случайный — нестабильный) |
-| `MIGRATIONS_DIR` | Путь к директории с goose-миграциями |
-| `SMTP_SERVER` | SMTP-сервер (напр. `smtp.mail.ru:587`) |
-| `SMTP_USERNAME` | Логин для SMTP-аутентификации |
-| `SMTP_PASSWORD` | Пароль для SMTP-аутентификации |
-| `SMTP_FROM` | Адрес для Reply-To (напр. `noreply@example.com`) |
-| `VERIFY_BASE_URL` | Публичный URL эндпоинта verify для ссылки в письме |
+| `JWT_SECRET` | Секрет для подписи JWT |
+| `SMTP_SERVER` | SMTP-сервер |
+| `SMTP_USERNAME` | Логин для SMTP |
+| `SMTP_PASSWORD` | Пароль для SMTP |
+| `SMTP_FROM` | Адрес для Reply-To |
+| `VERIFY_BASE_URL` | Публичный URL эндпоинта verify |
 | `FRONTEND_URL` | URL для редиректа после верификации |
