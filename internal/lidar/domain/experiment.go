@@ -56,17 +56,16 @@ type ExperimentStorageRefs struct {
 
 // Experiment is the central domain entity representing a lidar measurement session.
 type Experiment struct {
-	ID                  uuid.UUID
-	Title               string
-	Comments            string
-	ZenithAngle         float32
-	TimeRange           TimeRange
-	GeoLocation         GeoLocation
-	AtmosphereProfileID uuid.UUID
-	StorageRefs         ExperimentStorageRefs
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-	DeletedAt           *time.Time
+	ID          uuid.UUID
+	Title       string
+	Comments    string
+	ZenithAngle float32
+	TimeRange   TimeRange
+	GeoLocation GeoLocation
+	StorageRefs ExperimentStorageRefs
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   *time.Time
 }
 
 // ExperimentOption is a functional option for creating an Experiment.
@@ -88,19 +87,17 @@ func NewExperiment(
 	zenithAngle float32,
 	timeRange TimeRange,
 	location GeoLocation,
-	atmosphereProfileID uuid.UUID,
 	opts ...ExperimentOption,
 ) Experiment {
 	now := time.Now()
 	e := Experiment{
-		ID:                  uuid.New(),
-		Title:               title,
-		ZenithAngle:         zenithAngle,
-		TimeRange:           timeRange,
-		GeoLocation:         location,
-		AtmosphereProfileID: atmosphereProfileID,
-		CreatedAt:           now,
-		UpdatedAt:           now,
+		ID:          uuid.New(),
+		Title:       title,
+		ZenithAngle: zenithAngle,
+		TimeRange:   timeRange,
+		GeoLocation: location,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 	for _, opt := range opts {
 		opt(&e)

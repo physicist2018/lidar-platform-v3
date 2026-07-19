@@ -17,15 +17,13 @@ const createExperiment = `-- name: CreateExperiment :one
 INSERT INTO lidar.experiments (
     title, comments, zenith_angle,
     experiment_start, experiment_end, longitude, latitude,
-    atmosphere_profile_id,
     experiments_storage_id, background_storage_id, meteo_storage_id
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6, $7,
-    $8,
-    $9, $10, $11
+    $8, $9, $10
 )
-RETURNING id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, atmosphere_profile_id, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at
+RETURNING id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at
 `
 
 type CreateExperimentParams struct {
@@ -36,7 +34,6 @@ type CreateExperimentParams struct {
 	ExperimentEnd        time.Time      `json:"experiment_end"`
 	Longitude            float32        `json:"longitude"`
 	Latitude             float32        `json:"latitude"`
-	AtmosphereProfileID  uuid.UUID      `json:"atmosphere_profile_id"`
 	ExperimentsStorageID uuid.NullUUID  `json:"experiments_storage_id"`
 	BackgroundStorageID  uuid.NullUUID  `json:"background_storage_id"`
 	MeteoStorageID       uuid.NullUUID  `json:"meteo_storage_id"`
@@ -51,7 +48,6 @@ func (q *Queries) CreateExperiment(ctx context.Context, arg CreateExperimentPara
 		arg.ExperimentEnd,
 		arg.Longitude,
 		arg.Latitude,
-		arg.AtmosphereProfileID,
 		arg.ExperimentsStorageID,
 		arg.BackgroundStorageID,
 		arg.MeteoStorageID,
@@ -66,7 +62,6 @@ func (q *Queries) CreateExperiment(ctx context.Context, arg CreateExperimentPara
 		&i.ExperimentEnd,
 		&i.Longitude,
 		&i.Latitude,
-		&i.AtmosphereProfileID,
 		&i.ExperimentsStorageID,
 		&i.BackgroundStorageID,
 		&i.MeteoStorageID,
@@ -78,7 +73,7 @@ func (q *Queries) CreateExperiment(ctx context.Context, arg CreateExperimentPara
 }
 
 const getExperimentByID = `-- name: GetExperimentByID :one
-SELECT id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, atmosphere_profile_id, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at FROM lidar.experiments WHERE id = $1 AND deleted_at IS NULL
+SELECT id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at FROM lidar.experiments WHERE id = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetExperimentByID(ctx context.Context, id uuid.UUID) (LidarExperiment, error) {
@@ -93,7 +88,6 @@ func (q *Queries) GetExperimentByID(ctx context.Context, id uuid.UUID) (LidarExp
 		&i.ExperimentEnd,
 		&i.Longitude,
 		&i.Latitude,
-		&i.AtmosphereProfileID,
 		&i.ExperimentsStorageID,
 		&i.BackgroundStorageID,
 		&i.MeteoStorageID,
@@ -105,7 +99,7 @@ func (q *Queries) GetExperimentByID(ctx context.Context, id uuid.UUID) (LidarExp
 }
 
 const listExperiments = `-- name: ListExperiments :many
-SELECT id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, atmosphere_profile_id, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at FROM lidar.experiments
+SELECT id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at FROM lidar.experiments
 WHERE deleted_at IS NULL
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
@@ -134,7 +128,6 @@ func (q *Queries) ListExperiments(ctx context.Context, arg ListExperimentsParams
 			&i.ExperimentEnd,
 			&i.Longitude,
 			&i.Latitude,
-			&i.AtmosphereProfileID,
 			&i.ExperimentsStorageID,
 			&i.BackgroundStorageID,
 			&i.MeteoStorageID,
@@ -157,7 +150,7 @@ func (q *Queries) ListExperiments(ctx context.Context, arg ListExperimentsParams
 
 const restoreExperiment = `-- name: RestoreExperiment :one
 UPDATE lidar.experiments SET deleted_at = NULL, updated_at = now() WHERE id = $1
-RETURNING id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, atmosphere_profile_id, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at
+RETURNING id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at
 `
 
 func (q *Queries) RestoreExperiment(ctx context.Context, id uuid.UUID) (LidarExperiment, error) {
@@ -172,7 +165,6 @@ func (q *Queries) RestoreExperiment(ctx context.Context, id uuid.UUID) (LidarExp
 		&i.ExperimentEnd,
 		&i.Longitude,
 		&i.Latitude,
-		&i.AtmosphereProfileID,
 		&i.ExperimentsStorageID,
 		&i.BackgroundStorageID,
 		&i.MeteoStorageID,
@@ -201,22 +193,20 @@ UPDATE lidar.experiments SET
     latitude = COALESCE($6, latitude),
     experiment_start = COALESCE($7, experiment_start),
     experiment_end = COALESCE($8, experiment_end),
-    atmosphere_profile_id = COALESCE($9, atmosphere_profile_id),
     updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, atmosphere_profile_id, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at
+RETURNING id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at
 `
 
 type UpdateExperimentParams struct {
-	ID                  uuid.UUID      `json:"id"`
-	Title               string         `json:"title"`
-	Comments            sql.NullString `json:"comments"`
-	ZenithAngle         float32        `json:"zenith_angle"`
-	Longitude           float32        `json:"longitude"`
-	Latitude            float32        `json:"latitude"`
-	ExperimentStart     time.Time      `json:"experiment_start"`
-	ExperimentEnd       time.Time      `json:"experiment_end"`
-	AtmosphereProfileID uuid.UUID      `json:"atmosphere_profile_id"`
+	ID              uuid.UUID      `json:"id"`
+	Title           string         `json:"title"`
+	Comments        sql.NullString `json:"comments"`
+	ZenithAngle     float32        `json:"zenith_angle"`
+	Longitude       float32        `json:"longitude"`
+	Latitude        float32        `json:"latitude"`
+	ExperimentStart time.Time      `json:"experiment_start"`
+	ExperimentEnd   time.Time      `json:"experiment_end"`
 }
 
 func (q *Queries) UpdateExperiment(ctx context.Context, arg UpdateExperimentParams) (LidarExperiment, error) {
@@ -229,7 +219,6 @@ func (q *Queries) UpdateExperiment(ctx context.Context, arg UpdateExperimentPara
 		arg.Latitude,
 		arg.ExperimentStart,
 		arg.ExperimentEnd,
-		arg.AtmosphereProfileID,
 	)
 	var i LidarExperiment
 	err := row.Scan(
@@ -241,7 +230,6 @@ func (q *Queries) UpdateExperiment(ctx context.Context, arg UpdateExperimentPara
 		&i.ExperimentEnd,
 		&i.Longitude,
 		&i.Latitude,
-		&i.AtmosphereProfileID,
 		&i.ExperimentsStorageID,
 		&i.BackgroundStorageID,
 		&i.MeteoStorageID,
@@ -259,7 +247,7 @@ UPDATE lidar.experiments SET
     meteo_storage_id = $4,
     updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, atmosphere_profile_id, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at
+RETURNING id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at
 `
 
 type UpdateExperimentStorageRefsParams struct {
@@ -286,7 +274,6 @@ func (q *Queries) UpdateExperimentStorageRefs(ctx context.Context, arg UpdateExp
 		&i.ExperimentEnd,
 		&i.Longitude,
 		&i.Latitude,
-		&i.AtmosphereProfileID,
 		&i.ExperimentsStorageID,
 		&i.BackgroundStorageID,
 		&i.MeteoStorageID,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -107,7 +108,6 @@ func (uc *CreateExperimentUseCase) Execute(ctx context.Context, req *CreateExper
 		req.ZenithAngle,
 		timeRange,
 		geoLocation,
-		uuid.Nil,
 		domain.WithComments(req.Comments),
 		domain.WithStorageRefs(domain.ExperimentStorageRefs{
 			ExperimentDataID: &experimentObj.ID,
@@ -125,7 +125,7 @@ func (uc *CreateExperimentUseCase) Execute(ctx context.Context, req *CreateExper
 	// 5. Publish async task.
 	if uc.queue != nil {
 		if err := uc.queue.Publish(ctx, ports.SubjectParseExperiment, []byte(expID.String()), expID.String()); err != nil {
-			println("publish task:", err.Error())
+			log.Printf("publish task: %v", err)
 		}
 	}
 

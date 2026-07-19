@@ -29,7 +29,6 @@ type LidarExperiment struct {
 	ExperimentEnd        time.Time      `json:"experiment_end"`
 	Longitude            float32        `json:"longitude"`
 	Latitude             float32        `json:"latitude"`
-	AtmosphereProfileID  uuid.UUID      `json:"atmosphere_profile_id"`
 	ExperimentsStorageID uuid.NullUUID  `json:"experiments_storage_id"`
 	BackgroundStorageID  uuid.NullUUID  `json:"background_storage_id"`
 	MeteoStorageID       uuid.NullUUID  `json:"meteo_storage_id"`

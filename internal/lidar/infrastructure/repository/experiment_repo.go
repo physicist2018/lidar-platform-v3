@@ -32,7 +32,6 @@ func (r *PostgresExperimentRepository) Create(ctx context.Context, experiment *d
 		ExperimentEnd:        experiment.TimeRange.End,
 		Longitude:            experiment.GeoLocation.Longitude,
 		Latitude:             experiment.GeoLocation.Latitude,
-		AtmosphereProfileID:  experiment.AtmosphereProfileID,
 		ExperimentsStorageID: toNullUUID(experiment.StorageRefs.ExperimentDataID),
 		BackgroundStorageID:  toNullUUID(experiment.StorageRefs.BackgroundID),
 		MeteoStorageID:       toNullUUID(experiment.StorageRefs.MeteoID),
@@ -69,18 +68,16 @@ func (r *PostgresExperimentRepository) FindAll(ctx context.Context, limit, offse
 }
 
 // Update updates mutable fields of an experiment.
-// The experiment must not be deleted.
 func (r *PostgresExperimentRepository) Update(ctx context.Context, experiment *domain.Experiment) error {
 	_, err := r.q.UpdateExperiment(ctx, db.UpdateExperimentParams{
-		ID:                  experiment.ID,
-		Title:               experiment.Title,
-		Comments:            toNullString(experiment.Comments),
-		ZenithAngle:         experiment.ZenithAngle,
-		Longitude:           experiment.GeoLocation.Longitude,
-		Latitude:            experiment.GeoLocation.Latitude,
-		ExperimentStart:     experiment.TimeRange.Start,
-		ExperimentEnd:       experiment.TimeRange.End,
-		AtmosphereProfileID: experiment.AtmosphereProfileID,
+		ID:              experiment.ID,
+		Title:           experiment.Title,
+		Comments:        toNullString(experiment.Comments),
+		ZenithAngle:     experiment.ZenithAngle,
+		Longitude:       experiment.GeoLocation.Longitude,
+		Latitude:        experiment.GeoLocation.Latitude,
+		ExperimentStart: experiment.TimeRange.Start,
+		ExperimentEnd:   experiment.TimeRange.End,
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -110,11 +107,7 @@ func (r *PostgresExperimentRepository) UpdateStorageRefs(ctx context.Context, id
 
 // SoftDelete marks an experiment as deleted (sets deleted_at).
 func (r *PostgresExperimentRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
-	err := r.q.SoftDeleteExperiment(ctx, id)
-	if err != nil {
-		return err
-	}
-	return nil
+	return r.q.SoftDeleteExperiment(ctx, id)
 }
 
 // Restore removes the soft-delete mark from an experiment.
@@ -133,11 +126,9 @@ func (r *PostgresExperimentRepository) Restore(ctx context.Context, id uuid.UUID
 // Mappers
 // ---------------------------------------------------------------------------
 
-// mapExperiment converts a sqlc model to a domain Experiment.
 func mapExperiment(u db.LidarExperiment) *domain.Experiment {
 	timeRange, err := domain.NewTimeRange(u.ExperimentStart, u.ExperimentEnd)
 	if err != nil {
-		// This should never happen with valid data from the database.
 		timeRange = domain.TimeRange{Start: u.ExperimentStart, End: u.ExperimentEnd}
 	}
 
@@ -147,13 +138,12 @@ func mapExperiment(u db.LidarExperiment) *domain.Experiment {
 	}
 
 	return &domain.Experiment{
-		ID:                  u.ID,
-		Title:               u.Title,
-		Comments:            u.Comments.String,
-		ZenithAngle:         u.ZenithAngle,
-		TimeRange:           timeRange,
-		GeoLocation:         geoLocation,
-		AtmosphereProfileID: u.AtmosphereProfileID,
+		ID:          u.ID,
+		Title:       u.Title,
+		Comments:    u.Comments.String,
+		ZenithAngle: u.ZenithAngle,
+		TimeRange:   timeRange,
+		GeoLocation: geoLocation,
 		StorageRefs: domain.ExperimentStorageRefs{
 			ExperimentDataID: fromNullUUID(u.ExperimentsStorageID),
 			BackgroundID:     fromNullUUID(u.BackgroundStorageID),

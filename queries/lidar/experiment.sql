@@ -2,13 +2,11 @@
 INSERT INTO lidar.experiments (
     title, comments, zenith_angle,
     experiment_start, experiment_end, longitude, latitude,
-    atmosphere_profile_id,
     experiments_storage_id, background_storage_id, meteo_storage_id
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6, $7,
-    $8,
-    $9, $10, $11
+    $8, $9, $10
 )
 RETURNING *;
 
@@ -30,7 +28,6 @@ UPDATE lidar.experiments SET
     latitude = COALESCE($6, latitude),
     experiment_start = COALESCE($7, experiment_start),
     experiment_end = COALESCE($8, experiment_end),
-    atmosphere_profile_id = COALESCE($9, atmosphere_profile_id),
     updated_at = now()
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING *;
