@@ -323,6 +323,75 @@ ALTER TABLE lidar.experiments ADD COLUMN ...;
 ALTER TABLE lidar.experiments DROP COLUMN ...;
 ```
 
+### Добавление обработчика в Worker
+
+#### 1. Создать файл хендлера
+
+Хендлер реализует интерфейс `internal/worker/handler.go`:
+
+```go
+package worker
+
+import "context"
+import "github.com/physcist2018/lidar-platform-v3/internal/lidar/ports"
+
+type TaskHandler interface {
+    Subject() ports.Subject
+    Handle(ctx context.Context, data []byte) error
+}
+```
+
+Пример хендлера — `prepare_experiment.go`:
+
+```go
+// internal/worker/prepare_experiment.go
+package worker
+
+import (
+    "context"
+    "log"
+    "github.com/physcist2018/lidar-platform-v3/internal/lidar/ports"
+)
+
+type PrepareExperimentHandler struct {
+    repo ports.ExperimentRepository
+}
+
+func NewPrepareExperimentHandler(repo ports.ExperimentRepository) *PrepareExperimentHandler {
+    return &PrepareExperimentHandler{repo: repo}
+}
+
+func (h *PrepareExperimentHandler) Subject() ports.Subject {
+    return ports.SubjectPrepareExperiment
+}
+
+func (h *PrepareExperimentHandler) Handle(ctx context.Context, data []byte) error {
+    log.Printf("prepare: received %s", string(data))
+    // return error → Nak (повторная доставка)
+    return nil
+}
+```
+
+#### 2. Зарегистрировать в `cmd/worker/main.go`
+
+```go
+w.Register(
+    worker.NewParseExperimentHandler(experimentRepo, storageObjRepo, fileStorage),
+    worker.NewPrepareExperimentHandler(experimentRepo),   // ← новый
+)
+```
+
+#### 3. Собрать и проверить
+
+```bash
+go build ./cmd/worker/
+```
+
+Worker автоматически подпишется на `Subject()` нового хендлера.
+
+> Если нужен новый subject — добавь константу в `internal/lidar/ports/message_queue.go`
+> и используй её в `Subject()` и при публикации.
+
 ### Принципы
 
 - **DDD** — бизнес-логика изолирована от инфраструктуры
