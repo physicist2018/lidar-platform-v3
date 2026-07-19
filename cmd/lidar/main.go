@@ -28,21 +28,17 @@ func main() {
 	ctx := context.Background()
 
 	// ---------------------------------------------------------------
-	// 1. Database — run migrations as superuser, then connect as lidar_user
+	// 1. Database — connect, migrate, use
 	// ---------------------------------------------------------------
-	// migrationsURL := os.Getenv("DATABASE_URL_MIGRATIONS")
-	// if migrationsURL == "" {
-	// 	migrationsURL = cfg.DatabaseURL
-	// }
-
-	migrateConn, err := sql.Open("postgres", cfg.DatabaseURL)
+	dbConn, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("db: migrate open: %v", err)
+		log.Fatalf("db: open: %v", err)
 	}
+	defer dbConn.Close()
 
 	var pingErr error
 	for i := 0; i < dbRetries; i++ {
-		if pingErr = migrateConn.Ping(); pingErr == nil {
+		if pingErr = dbConn.Ping(); pingErr == nil {
 			break
 		}
 		if i == dbRetries-1 {
@@ -54,22 +50,10 @@ func main() {
 	log.Println("db: connected")
 
 	goose.SetDialect("postgres")
-	if err := goose.Up(migrateConn, cfg.MigrationsDir); err != nil {
+	if err := goose.Up(dbConn, cfg.MigrationsDir); err != nil {
 		log.Fatalf("db: migration failed: %v", err)
 	}
-	migrateConn.Close()
 	log.Println("db: migrations applied")
-
-	// Open a separate connection for the application (lidar_user).
-	dbConn, err := sql.Open("postgres", cfg.DatabaseURL)
-	if err != nil {
-		log.Fatalf("db: open: %v", err)
-	}
-	defer dbConn.Close()
-
-	if err := dbConn.Ping(); err != nil {
-		log.Fatalf("db: ping lidar_user: %v", err)
-	}
 
 	// ---------------------------------------------------------------
 	// 2. Repositories
