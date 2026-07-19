@@ -45,19 +45,26 @@ func (s *MinIOFileStorage) CreateBucket(ctx context.Context, bucket string) erro
 	return nil
 }
 
-// Upload streams data from a reader into the object store.
-func (s *MinIOFileStorage) Upload(ctx context.Context, bucket, path string, reader io.Reader, size int64, contentType string) error {
-	_, err := s.client.PutObject(ctx, bucket, path, reader, size, minio.PutObjectOptions{
+// Upload streams data from a reader into the object store and returns metadata.
+func (s *MinIOFileStorage) Upload(ctx context.Context, bucket, path string, reader io.Reader, size int64, contentType string) (*ports.ObjectInfo, error) {
+	info, err := s.client.PutObject(ctx, bucket, path, reader, size, minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	if err != nil {
-		return fmt.Errorf("minio: upload %s/%s: %w", bucket, path, err)
+		return nil, fmt.Errorf("minio: upload %s/%s: %w", bucket, path, err)
 	}
-	return nil
+	return &ports.ObjectInfo{
+		Bucket:       bucket,
+		Path:         info.Key,
+		Size:         info.Size,
+		ETag:         info.ETag,
+		ContentType:  contentType,
+		LastModified: info.LastModified,
+	}, nil
 }
 
 // UploadBytes uploads a byte slice as an object.
-func (s *MinIOFileStorage) UploadBytes(ctx context.Context, bucket, path string, data []byte, contentType string) error {
+func (s *MinIOFileStorage) UploadBytes(ctx context.Context, bucket, path string, data []byte, contentType string) (*ports.ObjectInfo, error) {
 	return s.Upload(ctx, bucket, path, bytes.NewReader(data), int64(len(data)), contentType)
 }
 

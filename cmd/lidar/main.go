@@ -18,10 +18,11 @@ func main() {
 		addr = ":8091"
 	}
 
-	router := server.NewRouter()
+	// Experiment creation requires MinIO, NATS, and PostgreSQL.
+	// Wire these when infra is available. For now, run without the handler.
+	router := server.NewRouter(nil)
 	srv := &http.Server{Addr: addr, Handler: router}
 
-	// Start server in a goroutine.
 	go func() {
 		log.Printf("lidar service starting on %s", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -29,7 +30,6 @@ func main() {
 		}
 	}()
 
-	// Wait for shutdown signal.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit

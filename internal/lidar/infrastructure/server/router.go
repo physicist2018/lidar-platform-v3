@@ -8,7 +8,8 @@ import (
 )
 
 // NewRouter creates and configures the chi router for the lidar service.
-func NewRouter() http.Handler {
+// expHandler may be nil — the route will return 501 in that case.
+func NewRouter(expHandler *ExperimentHandler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -16,6 +17,16 @@ func NewRouter() http.Handler {
 	r.Use(middleware.RequestID)
 
 	r.Get("/health", healthHandler)
+
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Post("/experiments/create", func(w http.ResponseWriter, r *http.Request) {
+			if expHandler == nil {
+				RespondWithError(w, http.StatusNotImplemented, "experiment creation not available")
+				return
+			}
+			expHandler.HandleCreateExperiment(w, r)
+		})
+	})
 
 	return r
 }
