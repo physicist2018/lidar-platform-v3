@@ -6,11 +6,11 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/pressly/goose/v3"
 
 	"github.com/physcist2018/lidar-platform-v3/internal/lidar/infrastructure/messaging"
 	"github.com/physcist2018/lidar-platform-v3/internal/lidar/infrastructure/repository"
@@ -27,19 +27,15 @@ func main() {
 	// ---------------------------------------------------------------
 	// 1. Database
 	// ---------------------------------------------------------------
-	migrateURL := cfg.MigrationsURL
-	if migrateURL == "" {
-		migrateURL = cfg.DatabaseURL
-	}
-
-	migrateConn, err := sql.Open("postgres", migrateURL)
+	dbConn, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("db: open migrate: %v", err)
+		log.Fatalf("db: open: %v", err)
 	}
+	defer dbConn.Close()
 
 	var pingErr error
 	for i := 0; i < dbRetries; i++ {
-		if pingErr = migrateConn.Ping(); pingErr == nil {
+		if pingErr = dbConn.Ping(); pingErr == nil {
 			break
 		}
 		if i == dbRetries-1 {
@@ -49,19 +45,6 @@ func main() {
 		time.Sleep(time.Duration(i+1) * 500 * time.Millisecond)
 	}
 	log.Println("db: connected")
-
-	goose.SetDialect("postgres")
-	if err := goose.Up(migrateConn, cfg.MigrationsDir); err != nil {
-		log.Fatalf("db: migration failed: %v", err)
-	}
-	migrateConn.Close()
-	log.Println("db: migrations applied")
-
-	dbConn, err := sql.Open("postgres", cfg.DatabaseURL)
-	if err != nil {
-		log.Fatalf("db: open app: %v", err)
-	}
-	defer dbConn.Close()
 
 	// ---------------------------------------------------------------
 	// 2. Repositories
@@ -92,7 +75,6 @@ func main() {
 	// 5. Worker
 	// ---------------------------------------------------------------
 	w := worker.New(msgQueue)
-
 	w.Register(
 		worker.NewParseExperimentHandler(experimentRepo, storageObjRepo, fileStorage),
 	)
@@ -100,19 +82,23 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		sig := <-sigCh
-		log.Printf("signal: received %s", sig)
-		cancel()
+		defer wg.Done()
+		if err := w.Run(ctx); err != nil {
+			log.Fatalf("worker: %v", err)
+		}
 	}()
 
-	log.Println("worker: starting...")
-	if err := w.Run(ctx); err != nil {
-		log.Fatalf("worker: %v", err)
-	}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-sigCh
+	log.Printf("signal: received %s, shutting down...", sig)
+	cancel()
 
+	wg.Wait()
 	w.Close()
 	log.Println("worker: stopped")
 }

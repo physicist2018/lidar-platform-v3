@@ -9,19 +9,15 @@ import (
 
 // Config holds all configuration for the worker.
 type Config struct {
-	DatabaseURL   string
-	MigrationsURL string
-	MigrationsDir string
-	MinIO         storage.Config
-	NATS          messaging.Config
+	DatabaseURL string
+	MinIO       storage.Config
+	NATS        messaging.Config
 }
 
 // Load reads configuration from environment variables.
 func Load() Config {
 	return Config{
-		DatabaseURL:   env("DATABASE_URL", "postgresql://lidar_user:pass@localhost:5432/main_db?search_path=lidar&sslmode=disable"),
-		MigrationsURL: os.Getenv("DATABASE_URL_MIGRATIONS"),
-		MigrationsDir: env("MIGRATIONS_DIR", "migrations/lidar"),
+		DatabaseURL: env("DATABASE_URL", "postgresql://lidar_user:pass@localhost:5432/main_db?search_path=lidar&sslmode=disable"),
 		MinIO: storage.Config{
 			Endpoint:  env("MINIO_ENDPOINT", "localhost:9000"),
 			AccessKey: env("MINIO_ACCESS_KEY", "minioadmin"),
