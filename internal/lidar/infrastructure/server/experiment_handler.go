@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strconv"
@@ -8,13 +9,18 @@ import (
 	"github.com/physcist2018/lidar-platform-v3/internal/lidar/application"
 )
 
+// CreateExperimentUseCase is the interface for creating experiments.
+type CreateExperimentUseCase interface {
+	Execute(ctx context.Context, req *application.CreateExperimentRequest) (*application.CreateExperimentResponse, error)
+}
+
 // ExperimentHandler handles HTTP requests for experiments.
 type ExperimentHandler struct {
-	createUC *application.CreateExperimentUseCase
+	createUC CreateExperimentUseCase
 }
 
 // NewExperimentHandler creates a new ExperimentHandler.
-func NewExperimentHandler(createUC *application.CreateExperimentUseCase) *ExperimentHandler {
+func NewExperimentHandler(createUC CreateExperimentUseCase) *ExperimentHandler {
 	return &ExperimentHandler{createUC: createUC}
 }
 
