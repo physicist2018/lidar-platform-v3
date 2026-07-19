@@ -1,8 +1,6 @@
 services:
   postgres:
     image: postgres:15-alpine
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: pass
@@ -15,33 +13,46 @@ services:
       interval: 1s
       retries: 15
       start_period: 5s
+    networks:
+      - backend
 
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_BROWSER_REDIRECT_URL: https://localhost/minio-console/
     volumes:
       - minio_data:/data
+    networks:
+      - frontend
+      - backend
 
   nats:
     image: nats:latest
     command: -js -sd /data
-    ports:
-      - "4222:4222"
     volumes:
       - nats_data:/data
+    networks:
+      - backend
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "443:443"
+      - "80:80"
+    depends_on:
+      - identity
+      - lidar
+      - minio
+    networks:
+      - frontend
 
   identity:
     build:
       context: .
       dockerfile: cmd/identity/Dockerfile
-    ports:
-      - "8090:8090"
     environment:
       DATABASE_URL: postgresql://identity_user:pass@postgres:5432/main_db?search_path=identity&sslmode=disable
       HTTP_ADDR: :8090
@@ -51,18 +62,19 @@ services:
       SMTP_USERNAME: lidar-processing@inbox.ru
       SMTP_PASSWORD: ulhEEMqGkJmhPXPF0mej
       SMTP_FROM: lidar-processing@inbox.ru
-      VERIFY_BASE_URL: http://localhost:8090
-      FRONTEND_URL: http://localhost:8090
+      VERIFY_BASE_URL: https://localhost
+      FRONTEND_URL: https://localhost
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - frontend
+      - backend
 
   lidar:
     build:
       context: .
       dockerfile: cmd/lidar/Dockerfile
-    ports:
-      - "8091:8091"
     environment:
       DATABASE_URL: postgresql://lidar_user:pass@postgres:5432/main_db?search_path=lidar&sslmode=disable
       HTTP_ADDR: :8091
@@ -79,6 +91,9 @@ services:
         condition: service_started
       nats:
         condition: service_started
+    networks:
+      - frontend
+      - backend
 
   worker:
     build:
@@ -98,6 +113,12 @@ services:
         condition: service_started
       nats:
         condition: service_started
+    networks:
+      - backend
+
+networks:
+  frontend:
+  backend:
 
 volumes:
   pgdata:
