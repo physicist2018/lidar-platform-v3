@@ -81,6 +81,27 @@ services:
       nats:
         condition: service_started
 
+  worker:
+    build:
+      context: .
+      dockerfile: cmd/worker/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://lidar_user:pass@postgres:5432/main_db?search_path=lidar&sslmode=disable
+      DATABASE_URL_MIGRATIONS: postgresql://user:pass@postgres:5432/main_db?sslmode=disable
+      MIGRATIONS_DIR: /migrations/lidar
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_USE_SSL: "false"
+      NATS_URL: nats://nats:4222
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      nats:
+        condition: service_started
+
 volumes:
   pgdata:
   minio_data:
