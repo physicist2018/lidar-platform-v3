@@ -30,8 +30,11 @@ services:
 
   nats:
     image: nats:latest
+    command: -js -sd /data
     ports:
       - "4222:4222"
+    volumes:
+      - nats_data:/data
 
   identity:
     build:
@@ -81,3 +84,4 @@ services:
 volumes:
   pgdata:
   minio_data:
+  nats_data:

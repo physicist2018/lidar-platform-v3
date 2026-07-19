@@ -30,12 +30,12 @@ func main() {
 	// ---------------------------------------------------------------
 	// 1. Database — run migrations as superuser, then connect as lidar_user
 	// ---------------------------------------------------------------
-	migrationsURL := os.Getenv("DATABASE_URL_MIGRATIONS")
-	if migrationsURL == "" {
-		migrationsURL = cfg.DatabaseURL
-	}
+	// migrationsURL := os.Getenv("DATABASE_URL_MIGRATIONS")
+	// if migrationsURL == "" {
+	// 	migrationsURL = cfg.DatabaseURL
+	// }
 
-	migrateConn, err := sql.Open("postgres", migrationsURL)
+	migrateConn, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("db: migrate open: %v", err)
 	}
