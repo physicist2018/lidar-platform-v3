@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/physcist2018/lidar-platform-v3/internal/lidar/ports"
@@ -29,6 +30,10 @@ func (w *Worker) Register(h ...TaskHandler) {
 	w.handlers = append(w.handlers, h...)
 }
 
+func consumerName(subject ports.Subject) string {
+	return strings.ReplaceAll(string(subject), ".", "-") + "-worker"
+}
+
 // Run subscribes to all registered handlers' subjects and starts processing.
 // Blocks until ctx is cancelled or a fatal error occurs.
 func (w *Worker) Run(ctx context.Context) error {
@@ -38,7 +43,7 @@ func (w *Worker) Run(ctx context.Context) error {
 
 	for _, h := range w.handlers {
 		h := h
-		sub, err := w.msgQueue.Subscribe(ctx, h.Subject(), string(h.Subject())+"-worker",
+		sub, err := w.msgQueue.Subscribe(ctx, h.Subject(), consumerName(h.Subject()),
 			func(_ context.Context, msg ports.Message) error {
 				log.Printf("worker: received task %s (dedup=%q)", msg.Subject, msg.DedupID)
 				if err := h.Handle(context.Background(), msg.Data); err != nil {
