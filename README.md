@@ -29,6 +29,9 @@ lidar-platform-v3/
 │       ├── worker.go                # Worker Run/Stop
 │       ├── handler.go               # TaskHandler interface
 │       └── parse_experiment.go      # ParseExperiment handler
+├── nginx/
+│   ├── nginx.conf                   # HTTPS + proxy на identity, lidar, minio console
+│   └── Dockerfile                   # nginx:alpine + self-signed cert
 ├── scripts/
 │   └── create_experiment.sh         # Тестовый скрипт для API
 ├── testdata/                        # Тестовые файлы (LICEL, meteo, zip)
@@ -37,7 +40,7 @@ lidar-platform-v3/
 │   └── lidar/                       # Goose-миграции lidar
 ├── queries/                         # sqlc-запросы
 ├── pkg/db/                          # sqlc-генерация
-├── docker-compose.yml               # postgres + minio + nats + identity + lidar + worker
+├── docker-compose.yml               # nginx + postgres + minio + nats + identity + lidar + worker
 ├── sqlc.yml                         # Конфиг sqlc
 └── init-db.sh                       # Инициализация БД (схемы, роли)
 ```
@@ -62,7 +65,9 @@ lidar-platform-v3/
 #### `POST /register`
 
 ```bash
-xh POST http://localhost:8090/register email==user@example.com password==secret123
+curl -k https://localhost/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"secret123"}'
 ```
 
 | Код | Ответ | Когда |
@@ -78,7 +83,9 @@ xh POST http://localhost:8090/register email==user@example.com password==secret1
 #### `POST /login`
 
 ```bash
-xh POST http://localhost:8090/login email==user@example.com password==secret123
+curl -k https://localhost/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"secret123"}'
 ```
 
 | Код | Ответ |
@@ -98,7 +105,7 @@ xh POST http://localhost:8090/login email==user@example.com password==secret123
 Создаёт эксперимент: загружает файлы в MinIO + сохраняет метаданные в БД.
 
 ```bash
-curl -X POST http://localhost:8091/api/v1/experiments/create \
+curl -k -X POST https://localhost/api/v1/experiments/create \
   -F "title=Test Experiment" \
   -F "zenith_angle=45.5" \
   -F "latitude=43.1" \
@@ -119,7 +126,7 @@ curl -X POST http://localhost:8091/api/v1/experiments/create \
 Создаёт задачу на обработку и публикует её в NATS.
 
 ```bash
-curl -X POST http://localhost:8091/api/v1/experiments/task \
+curl -k -X POST https://localhost/api/v1/experiments/task \
   -H "Content-Type: application/json" \
   -d '{
     "profile_id": ["exp-uuid-123"],
@@ -223,7 +230,7 @@ NATS (lidar.task.*)
   └─ lidar.task.process_experiment → (заглушка)
 ```
 
-Worker имеет доступ к БД, MinIO и NATS.
+Worker имеет доступ к БД, MinIO и NATS (только сеть backend).
 
 ### Запуск
 
@@ -237,6 +244,22 @@ NATS_URL="nats://localhost:4222" go run ./cmd/worker/
 
 ---
 
+## Nginx — HTTPS-прокси
+
+Все внешние запросы проходят через nginx на порту 443 (HTTPS). HTTP (80) редиректит на HTTPS.
+
+### Routes
+
+| Path | Target |
+|---|---|
+| `/register`, `/login`, `/verify` | `http://identity:8090` |
+| `/api/*`, `/health` | `http://lidar:8091` |
+| `/minio-console/` | `http://minio:9001` (WebSocket) |
+
+Сертификат — self-signed (localhost). Для прода нужно заменить на Let's Encrypt.
+
+---
+
 ## Docker
 
 ```bash
@@ -244,20 +267,29 @@ NATS_URL="nats://localhost:4222" go run ./cmd/worker/
 docker compose up -d --build
 
 # Отдельные сервисы
+docker compose up -d --build nginx
 docker compose up -d --build lidar
 docker compose up -d --build worker
 ```
 
 ### Сервисы
 
-| Сервис | Порт | Назначение |
-|---|---|---|
-| postgres | 5432 | PostgreSQL |
-| minio | 9000, 9001 | S3-совместимое хранилище |
-| nats | 4222 | Message Queue (JetStream) |
-| identity | 8090 | Аутентификация |
-| lidar | 8091 | HTTP API для LiDAR |
-| worker | — | Фоновая обработка задач |
+| Сервис | Host Port | Сеть | Назначение |
+|---|---|---|---|
+| **nginx** | **443 (HTTPS), 80** | frontend | Входная точка |
+| postgres | ❌ | backend | PostgreSQL |
+| minio | ❌ | frontend + backend | S3-хранилище |
+| nats | ❌ | backend | Message Queue |
+| identity | ❌ | frontend + backend | Аутентификация |
+| lidar | ❌ | frontend + backend | HTTP API для LiDAR |
+| worker | ❌ | backend | Фоновая обработка |
+
+### Сети
+
+```
+frontend — nginx, identity, lidar, minio (доступно извне через nginx)
+backend  — postgres, minio, nats, identity, lidar, worker (изолирована)
+```
 
 ---
 
@@ -271,6 +303,8 @@ docker compose up -d --build worker
 | `HTTP_ADDR` | `:8080` | HTTP порт |
 | `JWT_SECRET` | случайный | Секрет JWT |
 | `SMTP_*` | — | SMTP-отправка |
+| `VERIFY_BASE_URL` | `https://localhost` | Ссылка верификации в письме |
+| `FRONTEND_URL` | `https://localhost` | URL для редиректа |
 
 ### Lidar / Worker
 
@@ -279,11 +313,11 @@ docker compose up -d --build worker
 | `DATABASE_URL` | `postgresql://lidar_user:pass@...` | PostgreSQL (search_path=lidar) |
 | `MIGRATIONS_DIR` | `migrations/lidar` | Путь к goose-миграциям (только lidar) |
 | `HTTP_ADDR` | `:8091` | HTTP порт (только lidar) |
-| `MINIO_ENDPOINT` | `localhost:9000` | MinIO endpoint |
+| `MINIO_ENDPOINT` | `minio:9000` | MinIO endpoint |
 | `MINIO_ACCESS_KEY` | `minioadmin` | MinIO access key |
 | `MINIO_SECRET_KEY` | `minioadmin` | MinIO secret key |
 | `MINIO_USE_SSL` | `false` | MinIO TLS |
-| `NATS_URL` | `nats://localhost:4222` | NATS server |
+| `NATS_URL` | `nats://nats:4222` | NATS server |
 
 ---
 
@@ -297,9 +331,15 @@ go test ./...
 ./scripts/create_experiment.sh
 
 # Отправить задачу на обработку
-curl -X POST http://localhost:8091/api/v1/experiments/task \
+curl -k -X POST https://localhost/api/v1/experiments/task \
   -H "Content-Type: application/json" \
   -d '{"profile_id":["test"],"task_type":"KLETT_FERNALD","payload":{}}'
+
+# Health check
+curl -k https://localhost/health
+
+# MinIO Console
+open https://localhost/minio-console/
 ```
 
 ---

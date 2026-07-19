@@ -4,7 +4,7 @@
 
 ### Lidar domain models + infrastructure + services
 
-Добавлены доменные модели, HTTP API, NATS, Worker для LiDAR-сервиса.
+Добавлены доменные модели, HTTP API, NATS, Worker, nginx для LiDAR-сервиса.
 
 #### Added
 
@@ -27,6 +27,8 @@
 - **Worker** — отдельный микросервис: подписка на NATS, диспатч задач по subject (parse, process)
 - **ParseExperimentHandler** — обработчик задач (заглушка)
 - **Bash-скрипт** — `scripts/create_experiment.sh` для тестирования API с файлами из `testdata/`
+- **Nginx** — HTTPS (self-signed), прокси на identity, lidar, MinIO Console (/minio-console/). HTTP → HTTPS redirect.
+- **Docker сети** — frontend (nginx, identity, lidar, minio) + backend (postgres, minio, nats, identity, lidar, worker)
 
 #### Changed
 
@@ -36,25 +38,13 @@
 - **Upload** — возвращает `ObjectInfo` (ETag, Size, ContentType)
 - **Config** — выделен в отдельный пакет `internal/lidar/config`
 - **init-db.sh** — добавлен `GRANT CREATE ON DATABASE` для identity_user и lidar_user
-- **docker-compose** — добавлены minio, nats сервисы, worker, проброшены все env
+- **docker-compose** — добавлены nginx, minio, nats, worker; убраны host-порты postgres/minio/nats; 2 сети (frontend + backend)
 
 #### Fixed
 
 - NATS consumer name — точки заменены на дефисы (sanitize)
 - goose миграции — работают через основное подключение (без DATABASE_URL_MIGRATIONS)
-
-#### Configuration
-
-| Переменная | Сервис | Назначение |
-|---|---|---|
-| `DATABASE_URL` | lidar, worker | PostgreSQL connection string |
-| `HTTP_ADDR` | lidar | Адрес HTTP-сервера |
-| `MIGRATIONS_DIR` | lidar | Путь к goose-миграциям |
-| `MINIO_ENDPOINT` | lidar, worker | MinIO endpoint |
-| `MINIO_ACCESS_KEY` | lidar, worker | MinIO access key |
-| `MINIO_SECRET_KEY` | lidar, worker | MinIO secret key |
-| `MINIO_USE_SSL` | lidar, worker | MinIO TLS |
-| `NATS_URL` | lidar, worker | NATS server |
+- nginx 413 Request Entity Too Large — добавлен `client_max_body_size 2g`
 
 ---
 
@@ -82,16 +72,5 @@
 - **DDD-архитектура** — чёткое разделение domain / application / ports / infrastructure.
 - **Docker** — многоступенчатая сборка, docker-compose с postgres и identity.
 
-#### Configuration
+---
 
-| Переменная | Назначение |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `HTTP_ADDR` | Адрес HTTP-сервера (по умолч. `:8080`) |
-| `JWT_SECRET` | Секрет для подписи JWT |
-| `SMTP_SERVER` | SMTP-сервер |
-| `SMTP_USERNAME` | Логин для SMTP |
-| `SMTP_PASSWORD` | Пароль для SMTP |
-| `SMTP_FROM` | Адрес для Reply-To |
-| `VERIFY_BASE_URL` | Публичный URL эндпоинта verify |
-| `FRONTEND_URL` | URL для редиректа после верификации |
