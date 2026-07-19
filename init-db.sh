@@ -16,6 +16,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     \$$;
 
     GRANT CONNECT ON DATABASE main_db TO identity_user;
+    GRANT CREATE ON DATABASE main_db TO identity_user;
     GRANT ALL ON SCHEMA identity TO identity_user;
     ALTER DEFAULT PRIVILEGES IN SCHEMA identity GRANT ALL ON TABLES TO identity_user;
     ALTER DEFAULT PRIVILEGES IN SCHEMA identity GRANT ALL ON SEQUENCES TO identity_user;
@@ -34,6 +35,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     \$$;
 
     GRANT CONNECT ON DATABASE main_db TO lidar_user;
+    GRANT CREATE ON DATABASE main_db TO lidar_user;
     GRANT ALL ON SCHEMA lidar TO lidar_user;
     ALTER DEFAULT PRIVILEGES IN SCHEMA lidar GRANT ALL ON TABLES TO lidar_user;
     ALTER DEFAULT PRIVILEGES IN SCHEMA lidar GRANT ALL ON SEQUENCES TO lidar_user;
