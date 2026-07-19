@@ -28,7 +28,7 @@ func main() {
 	ctx := context.Background()
 
 	// ---------------------------------------------------------------
-	// 1. Database — connect, migrate, use
+	// 1. Database
 	// ---------------------------------------------------------------
 	dbConn, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
@@ -62,7 +62,7 @@ func main() {
 	storageObjRepo := repository.NewPostgresStorageObjectRepository(dbConn)
 
 	// ---------------------------------------------------------------
-	// 3. MinIO (object storage)
+	// 3. MinIO
 	// ---------------------------------------------------------------
 	fileStorage, err := storage.NewMinIOFileStorage(cfg.MinIO)
 	if err != nil {
@@ -75,7 +75,7 @@ func main() {
 	log.Println("minio: ready")
 
 	// ---------------------------------------------------------------
-	// 4. NATS (message queue)
+	// 4. NATS
 	// ---------------------------------------------------------------
 	msgQueue, err := messaging.NewNatsMessageQueue(cfg.NATS)
 	if err != nil {
@@ -88,12 +88,14 @@ func main() {
 	// 5. Use cases
 	// ---------------------------------------------------------------
 	createExpUC := application.NewCreateExperimentUseCase(fileStorage, storageObjRepo, experimentRepo, msgQueue)
+	createTaskUC := application.NewCreateTaskUseCase(msgQueue)
 
 	// ---------------------------------------------------------------
 	// 6. HTTP server
 	// ---------------------------------------------------------------
 	expHandler := server.NewExperimentHandler(createExpUC)
-	router := server.NewRouter(expHandler)
+	taskHandler := server.NewTaskHandler(createTaskUC)
+	router := server.NewRouter(expHandler, taskHandler)
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: router}
 

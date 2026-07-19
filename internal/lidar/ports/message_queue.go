@@ -9,6 +9,7 @@ type Subject string
 const (
 	SubjectParseExperiment   Subject = "lidar.task.parse_experiment"
 	SubjectPrepareExperiment Subject = "lidar.task.prepare_experiment"
+	SubjectProcessExperiment Subject = "lidar.task.process_experiment"
 )
 
 // Message represents a JetStream message.
