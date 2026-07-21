@@ -69,14 +69,41 @@ func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error 
 		return fmt.Errorf("get archive storage object: %w", err)
 	}
 
-	// Download archive from MinIO
+	// 1. Process experiment archive (zip)
+	if err := h.processArchive(ctx, expUUID, archiveStorage, false); err != nil {
+		return fmt.Errorf("process archive: %w", err)
+	}
+
+	// 2. Process background file (single LICEL file, optional)
+	if exp.StorageRefs.BackgroundID != nil {
+		bgStorage, err := h.storageObjRepo.FindByID(ctx, *exp.StorageRefs.BackgroundID)
+		if err != nil {
+			return fmt.Errorf("get background storage object: %w", err)
+		}
+		if err := h.processSingleLicelFile(ctx, expUUID, bgStorage, true); err != nil {
+			return fmt.Errorf("process background: %w", err)
+		}
+	}
+
+	log.Printf("parse_experiment: experiment %s done", expID)
+	return nil
+}
+
+// processArchive downloads a zip archive from MinIO, parses all LICEL files inside,
+// and creates LicelFile + LicelProfile records.
+func (h *ParseExperimentHandler) processArchive(
+	ctx context.Context,
+	expUUID uuid.UUID,
+	storageObj *domain.StorageObject,
+	isBackground bool,
+) error {
+	log.Printf("parse_experiment: processing archive %s/%s", storageObj.Path.Bucket, storageObj.Path.Path)
+
 	var buf bytes.Buffer
-	if err := h.fileStorage.Download(ctx, archiveStorage.Path.Bucket, archiveStorage.Path.Path, &buf); err != nil {
+	if err := h.fileStorage.Download(ctx, storageObj.Path.Bucket, storageObj.Path.Path, &buf); err != nil {
 		return fmt.Errorf("download archive: %w", err)
 	}
-	log.Printf("parse_experiment: archive downloaded (%d bytes)", buf.Len())
 
-	// Save to temp file (LicelPack requires a file path)
 	tmpFile, err := os.CreateTemp("", "*.zip")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
@@ -90,67 +117,106 @@ func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error 
 	tmpFile.Close()
 	defer os.Remove(tmpPath)
 
-	// Parse all files in the archive with LicelPack
 	lp, err := licelformat.NewLicelPackFromZip(tmpPath)
 	if err != nil {
 		return fmt.Errorf("new licel pack: %w", err)
 	}
-	log.Printf("parse_experiment: parsing complete: %d files, %d total profiles",
-		len(lp.Data), countProfiles(lp))
 
-	// Create LicelFile + LicelProfile records for each parsed file
 	for name, lf := range lp.Data {
-		log.Printf("parse_experiment: processing file %s (%d profiles)", name, len(lf.Profiles))
-
-		isBackground := strings.Contains(strings.ToLower(name), "background")
-
-		laserFreq := lf.Laser1Freq
-		if laserFreq == 0 && lf.Laser2Freq != 0 {
-			laserFreq = lf.Laser2Freq
-		}
-		if laserFreq == 0 && lf.Laser3Freq != 0 {
-			laserFreq = lf.Laser3Freq
-		}
-
-		timeRange, _ := domain.NewTimeRange(lf.MeasurementStartTime, lf.MeasurementStopTime)
-		licelFile := domain.NewLicelFile(
-			expUUID,
-			timeRange,
-			int32(lf.NDatasets),
-			int32(laserFreq),
-			isBackground,
-			archiveStorage.ID,
-			domain.WithFilename(name),
-		)
-		if err := h.licelFileRepo.Create(ctx, &licelFile); err != nil {
-			return fmt.Errorf("create licelfile: %w", err)
-		}
-
-		for _, lp := range lf.Profiles {
-			profile, err := domain.NewLicelProfile(
-				licelFile.ID,
-				int32(lp.NDataPoints),
-				float32(lp.HighVoltage),
-				float32(lp.BinWidth),
-				float32(lp.Wavelength),
-				lp.Polarization,
-				lp.DeviceID,
-				int32(lp.NShots),
-				float32(lp.DiscrLevel),
-				lp.Data,
-			)
-			if err != nil {
-				return fmt.Errorf("create licel profile: %w", err)
-			}
-			if err := h.licelProfileRepo.Create(ctx, &profile); err != nil {
-				return fmt.Errorf("save licel profile: %w", err)
-			}
+		if err := h.createLicelFileRecords(ctx, expUUID, name, lf, storageObj.ID, isBackground); err != nil {
+			return err
 		}
 	}
 
-	totalProfiles := countProfiles(lp)
-	log.Printf("parse_experiment: experiment %s done — %d files, %d profiles",
-		expID, len(lp.Data), totalProfiles)
+	log.Printf("parse_experiment: archive processed — %d files, %d profiles", len(lp.Data), countProfiles(lp))
+	return nil
+}
+
+// processSingleLicelFile downloads a single LICEL file from MinIO, parses it,
+// and creates LicelFile + LicelProfile records.
+func (h *ParseExperimentHandler) processSingleLicelFile(
+	ctx context.Context,
+	expUUID uuid.UUID,
+	storageObj *domain.StorageObject,
+	isBackground bool,
+) error {
+	log.Printf("parse_experiment: processing single file %s/%s", storageObj.Path.Bucket, storageObj.Path.Path)
+
+	var buf bytes.Buffer
+	if err := h.fileStorage.Download(ctx, storageObj.Path.Bucket, storageObj.Path.Path, &buf); err != nil {
+		return fmt.Errorf("download file: %w", err)
+	}
+
+	lf, err := licelformat.LoadLicelFileFromReader(bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		return fmt.Errorf("parse licelfile: %w", err)
+	}
+
+	// Extract filename from path
+	parts := strings.Split(storageObj.Path.Path, "/")
+	filename := parts[len(parts)-1]
+
+	if err := h.createLicelFileRecords(ctx, expUUID, filename, lf, storageObj.ID, isBackground); err != nil {
+		return err
+	}
+
+	log.Printf("parse_experiment: single file processed — %d profiles", len(lf.Profiles))
+	return nil
+}
+
+// createLicelFileRecords creates a LicelFile and its LicelProfiles from a parsed LICEL file.
+func (h *ParseExperimentHandler) createLicelFileRecords(
+	ctx context.Context,
+	expUUID uuid.UUID,
+	filename string,
+	lf licelformat.LicelFile,
+	rawStorageID uuid.UUID,
+	isBackground bool,
+) error {
+	log.Printf("parse_experiment: creating records for %s (%d profiles)", filename, len(lf.Profiles))
+
+	laserFreq := lf.Laser1Freq
+	if laserFreq == 0 && lf.Laser2Freq != 0 {
+		laserFreq = lf.Laser2Freq
+	}
+	if laserFreq == 0 && lf.Laser3Freq != 0 {
+		laserFreq = lf.Laser3Freq
+	}
+
+	timeRange, _ := domain.NewTimeRange(lf.MeasurementStartTime, lf.MeasurementStopTime)
+	licelFile := domain.NewLicelFile(
+		expUUID,
+		timeRange,
+		int32(lf.NDatasets),
+		int32(laserFreq),
+		isBackground,
+		rawStorageID,
+		domain.WithFilename(filename),
+	)
+	if err := h.licelFileRepo.Create(ctx, &licelFile); err != nil {
+		return fmt.Errorf("create licelfile: %w", err)
+	}
+
+	for _, lp := range lf.Profiles {
+		profile, err := domain.NewLicelProfile(
+			licelFile.ID,
+			int32(lp.NDataPoints),
+			float32(lp.HighVoltage),
+			float32(lp.BinWidth),
+			float32(lp.Wavelength),
+			lp.Polarization,
+			lp.DeviceID,
+			int32(lp.NShots),
+			float32(lp.DiscrLevel),
+			lp.Data,
+		)
+		if err != nil {
+			return fmt.Errorf("create licel profile: %w", err)
+		}
+		if err := h.licelProfileRepo.Create(ctx, &profile); err != nil {
+			return fmt.Errorf("save licel profile: %w", err)
+		}
+	}
 	return nil
 }
 
