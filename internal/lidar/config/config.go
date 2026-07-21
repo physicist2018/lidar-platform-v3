@@ -15,6 +15,7 @@ type Config struct {
 	MinIO         storage.Config
 	NATS          messaging.Config
 	HTTPAddr      string
+	JWTSecret     string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -31,7 +32,8 @@ func Load() Config {
 		NATS: messaging.Config{
 			URL: env("NATS_URL", "nats://localhost:4222"),
 		},
-		HTTPAddr: env("HTTP_ADDR", ":8091"),
+		HTTPAddr:  env("HTTP_ADDR", ":8091"),
+		JWTSecret: env("JWT_SECRET", ""),
 	}
 }
 

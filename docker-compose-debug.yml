@@ -24,9 +24,10 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
-      MINIO_BROWSER_REDIRECT_URL: https://localhost/minio-console/
+      #MINIO_BROWSER_REDIRECT_URL: https://localhost/minio-console/
     ports:
       - "9000:9000"
+      - "9001:9001"
     volumes:
       - minio_data:/data
     networks:
@@ -88,6 +89,7 @@ services:
       MINIO_SECRET_KEY: minioadmin
       MINIO_USE_SSL: "false"
       NATS_URL: nats://nats:4222
+      JWT_SECRET: change-me-in-production
     depends_on:
       postgres:
         condition: service_healthy

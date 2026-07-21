@@ -84,6 +84,7 @@ services:
       MINIO_SECRET_KEY: minioadmin
       MINIO_USE_SSL: "false"
       NATS_URL: nats://nats:4222
+      JWT_SECRET: change-me-in-production
     depends_on:
       postgres:
         condition: service_healthy

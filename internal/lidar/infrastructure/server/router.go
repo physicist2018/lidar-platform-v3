@@ -8,7 +8,7 @@ import (
 )
 
 // NewRouter creates and configures the chi router for the lidar service.
-func NewRouter(expHandler *ExperimentHandler, taskHandler *TaskHandler) http.Handler {
+func NewRouter(expHandler *ExperimentHandler, taskHandler *TaskHandler, jwtSecret string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -17,7 +17,10 @@ func NewRouter(expHandler *ExperimentHandler, taskHandler *TaskHandler) http.Han
 
 	r.Get("/health", healthHandler)
 
+	// All /api/v1 routes require JWT authentication.
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(JWTAuthMiddleware(jwtSecret))
+
 		r.Post("/experiments/create", func(w http.ResponseWriter, r *http.Request) {
 			if expHandler == nil {
 				RespondWithError(w, http.StatusNotImplemented, "experiment creation not available")

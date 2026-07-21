@@ -97,7 +97,7 @@ func main() {
 	// ---------------------------------------------------------------
 	expHandler := server.NewExperimentHandler(createExpUC)
 	taskHandler := server.NewTaskHandler(createTaskUC, getTaskStatusUC)
-	router := server.NewRouter(expHandler, taskHandler)
+	router := server.NewRouter(expHandler, taskHandler, cfg.JWTSecret)
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: router}
 

@@ -8,5 +8,6 @@ export MINIO_ACCESS_KEY=minioadmin
 export MINIO_SECRET_KEY=minioadmin
 export MINIO_USE_SSL="false"
 export NATS_URL=nats://localhost:4222
+export JWT_SECRET="change-me-in-production"
 echo $DATABASE_URL
 go run cmd/lidar/main.go
