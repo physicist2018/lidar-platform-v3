@@ -15,18 +15,19 @@ import (
 
 const createExperiment = `-- name: CreateExperiment :one
 INSERT INTO lidar.experiments (
-    title, comments, zenith_angle,
+    id, title, comments, zenith_angle,
     experiment_start, experiment_end, longitude, latitude,
     experiments_storage_id, background_storage_id, meteo_storage_id
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6, $7,
-    $8, $9, $10
+    $8, $9, $10, $11
 )
 RETURNING id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at
 `
 
 type CreateExperimentParams struct {
+	ID                   uuid.UUID      `json:"id"`
 	Title                string         `json:"title"`
 	Comments             sql.NullString `json:"comments"`
 	ZenithAngle          float32        `json:"zenith_angle"`
@@ -41,6 +42,7 @@ type CreateExperimentParams struct {
 
 func (q *Queries) CreateExperiment(ctx context.Context, arg CreateExperimentParams) (LidarExperiment, error) {
 	row := q.db.QueryRowContext(ctx, createExperiment,
+		arg.ID,
 		arg.Title,
 		arg.Comments,
 		arg.ZenithAngle,

@@ -21,9 +21,9 @@ func NewPostgresLicelProfileRepository(dbtx db.DBTX) *PostgresLicelProfileReposi
 	return &PostgresLicelProfileRepository{q: db.New(dbtx)}
 }
 
-// Create persists a new LICEL profile.
+// Create persists a new LICEL profile and updates the domain model with the DB-generated ID.
 func (r *PostgresLicelProfileRepository) Create(ctx context.Context, profile *domain.LicelProfile) error {
-	_, err := r.q.CreateLicelProfile(ctx, db.CreateLicelProfileParams{
+	u, err := r.q.CreateLicelProfile(ctx, db.CreateLicelProfileParams{
 		LicelfileID:  profile.LicelFileID,
 		NDataPoints:  profile.NDataPoints,
 		HighVoltage:  profile.HighVoltage,
@@ -35,7 +35,11 @@ func (r *PostgresLicelProfileRepository) Create(ctx context.Context, profile *do
 		DiscrLevel:   profile.DiscrLevel,
 		Data:         profile.Data,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	profile.ID = u.ID
+	return nil
 }
 
 // FindByID looks up a LICEL profile by ID.

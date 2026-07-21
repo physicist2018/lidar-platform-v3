@@ -59,7 +59,7 @@ services:
       context: .
       dockerfile: cmd/identity/Dockerfile
     environment:
-      DATABASE_URL: postgresql://identity_user:pass@postgres:5432/main_db?search_path=identity&sslmode=disable
+      DATABASE_URL: postgresql://identity_user:pass@postgres:5432/main_db?search_path=identity,public&sslmode=disable
       HTTP_ADDR: :8090
       JWT_SECRET: change-me-in-production
       MIGRATIONS_DIR: /migrations/identity
@@ -80,7 +80,7 @@ services:
       context: .
       dockerfile: cmd/lidar/Dockerfile
     environment:
-      DATABASE_URL: postgresql://lidar_user:pass@postgres:5432/main_db?search_path=lidar&sslmode=disable
+      DATABASE_URL: postgresql://lidar_user:pass@postgres:5432/main_db?search_path=lidar,public&sslmode=disable
       HTTP_ADDR: :8091
       MIGRATIONS_DIR: /migrations/lidar
       MINIO_ENDPOINT: minio:9000

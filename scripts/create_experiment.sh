@@ -8,7 +8,7 @@ set -euo pipefail
 #   ./scripts/create_experiment.sh
 #   URL=http://localhost:9999 ./scripts/create_experiment.sh
 
-URL="${URL:-https://localhost}/api/v1/experiments/create"
+URL="${URL:-http://localhost:8091}/api/v1/experiments/create"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TESTDATA_DIR="$(cd "$SCRIPT_DIR/../testdata" && pwd)"

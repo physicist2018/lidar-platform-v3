@@ -25,6 +25,7 @@ func NewPostgresExperimentRepository(dbtx db.DBTX) *PostgresExperimentRepository
 // Create persists a new experiment.
 func (r *PostgresExperimentRepository) Create(ctx context.Context, experiment *domain.Experiment) error {
 	_, err := r.q.CreateExperiment(ctx, db.CreateExperimentParams{
+		ID:                   experiment.ID,
 		Title:                experiment.Title,
 		Comments:             toNullString(experiment.Comments),
 		ZenithAngle:          experiment.ZenithAngle,

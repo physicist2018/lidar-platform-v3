@@ -21,9 +21,9 @@ func NewPostgresLicelFileRepository(dbtx db.DBTX) *PostgresLicelFileRepository {
 	return &PostgresLicelFileRepository{q: db.New(dbtx)}
 }
 
-// Create persists a new LICEL file.
+// Create persists a new LICEL file and updates the domain model with the DB-generated ID.
 func (r *PostgresLicelFileRepository) Create(ctx context.Context, file *domain.LicelFile) error {
-	_, err := r.q.CreateLicelFile(ctx, db.CreateLicelFileParams{
+	u, err := r.q.CreateLicelFile(ctx, db.CreateLicelFileParams{
 		ExperimentID:     file.ExperimentID,
 		MeasurementStart: file.MeasurementRange.Start,
 		MeasurementStop:  file.MeasurementRange.End,
@@ -33,7 +33,11 @@ func (r *PostgresLicelFileRepository) Create(ctx context.Context, file *domain.L
 		RawStorageID:     file.RawStorageID,
 		Filename:         file.Filename,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	file.ID = u.ID
+	return nil
 }
 
 // FindByID looks up a LICEL file by ID.

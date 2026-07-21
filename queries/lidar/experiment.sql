@@ -1,12 +1,12 @@
 -- name: CreateExperiment :one
 INSERT INTO lidar.experiments (
-    title, comments, zenith_angle,
+    id, title, comments, zenith_angle,
     experiment_start, experiment_end, longitude, latitude,
     experiments_storage_id, background_storage_id, meteo_storage_id
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6, $7,
-    $8, $9, $10
+    $8, $9, $10, $11
 )
 RETURNING *;
 

@@ -1,4 +1,5 @@
 -- +goose Up
+CREATE SCHEMA IF NOT EXISTS lidar;
 
 -- Таблица объектов хранилища (инфраструктурный реестр)
 CREATE TABLE lidar.storage_objects (
