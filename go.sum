@@ -1,3 +1,7 @@
+github.com/batchatco/go-native-netcdf v0.0.0-20260314195334-c3bf89299976 h1:DF9e55hXnNjnqOdG+6/agZtprp1Z1yWq5zJ1tmjH4kI=
+github.com/batchatco/go-native-netcdf v0.0.0-20260314195334-c3bf89299976/go.mod h1:9DR4lzem/4OwxigpgjJC4P3KYofnwgppaCdylYB3yqg=
+github.com/batchatco/go-thrower v0.0.0-20200827035905-5cb7337f6be6 h1:gDf4IUqKDnH7F0XdgeYOBx2jlMKF/j9Xm42sISXpwqY=
+github.com/batchatco/go-thrower v0.0.0-20200827035905-5cb7337f6be6/go.mod h1:hJ9Ll7FOzcIr57sd7RHga7StcCVAL0vFBUsNpnGntNg=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -40,6 +44,8 @@ github.com/ncruces/go-strftime v1.0.0 h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOF
 github.com/ncruces/go-strftime v1.0.0/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/philhofer/fwd v1.2.0 h1:e6DnBTl7vGY+Gz322/ASL4Gyp1FspeMvx1RNDoToZuM=
 github.com/philhofer/fwd v1.2.0/go.mod h1:RqIHx9QI14HlwKwm98g9Re5prTQ6LdeRQn+gXJFxsJM=
+github.com/physicist2018/licelfile/v2 v2.6.1 h1:c0LalxbbFtZsgZSTFviV1MqIuGPwnKQREAcYkZcXE7s=
+github.com/physicist2018/licelfile/v2 v2.6.1/go.mod h1:8okR1nYzUHcYgp4JtSRRQaTxDCnIktVHlq1yM6Bt3Cg=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pressly/goose/v3 v3.27.2 h1:FjKNzcmMdGrQlSIu5alMSmakQtJFBgtw+A0bb1p/LC8=

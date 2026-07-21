@@ -9,6 +9,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/minio/minio-go/v7 v7.2.1
 	github.com/nats-io/nats.go v1.52.0
+	github.com/physicist2018/licelfile/v2 v2.6.1
 	github.com/pressly/goose/v3 v3.27.2
 	github.com/sqlc-dev/pqtype v0.3.0
 	github.com/stretchr/testify v1.11.1
@@ -16,6 +17,8 @@ require (
 )
 
 require (
+	github.com/batchatco/go-native-netcdf v0.0.0-20260314195334-c3bf89299976 // indirect
+	github.com/batchatco/go-thrower v0.0.0-20200827035905-5cb7337f6be6 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect

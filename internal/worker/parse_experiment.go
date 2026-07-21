@@ -1,15 +1,15 @@
 package worker
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
-	"time"
+	"os"
+	"strings"
 
 	"github.com/google/uuid"
+	"github.com/physicist2018/licelfile/v2/licelformat"
 
 	"github.com/physcist2018/lidar-platform-v3/internal/lidar/domain"
 	"github.com/physcist2018/lidar-platform-v3/internal/lidar/ports"
@@ -18,8 +18,6 @@ import (
 const defaultBucket = "experiments"
 
 // ParseExperimentHandler handles lidar.task.parse_experiment tasks.
-// It downloads the experiment archive from MinIO, extracts files,
-// and creates LicelFile / LicelProfile records.
 type ParseExperimentHandler struct {
 	experimentRepo   ports.ExperimentRepository
 	storageObjRepo   ports.StorageObjectRepository
@@ -49,8 +47,6 @@ func (h *ParseExperimentHandler) Subject() ports.Subject {
 	return ports.SubjectParseExperiment
 }
 
-// Handle processes a parse_experiment task.
-// data contains the experiment ID as a string.
 func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error {
 	expID := string(data)
 	log.Printf("parse_experiment: processing experiment %s", expID)
@@ -60,13 +56,11 @@ func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error 
 		return fmt.Errorf("parse experiment id: %w", err)
 	}
 
-	// 1. Get experiment
 	exp, err := h.experimentRepo.FindByID(ctx, expUUID)
 	if err != nil {
 		return fmt.Errorf("get experiment: %w", err)
 	}
 
-	// 2. Get archive StorageObject (experiments_storage_id)
 	if exp.StorageRefs.ExperimentDataID == nil {
 		return fmt.Errorf("experiment %s has no archive storage reference", expID)
 	}
@@ -74,90 +68,96 @@ func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error 
 	if err != nil {
 		return fmt.Errorf("get archive storage object: %w", err)
 	}
-	log.Printf("parse_experiment: archive found: %s/%s", archiveStorage.Path.Bucket, archiveStorage.Path.Path)
 
-	// 3. Download archive from MinIO
+	// Download archive from MinIO
 	var buf bytes.Buffer
 	if err := h.fileStorage.Download(ctx, archiveStorage.Path.Bucket, archiveStorage.Path.Path, &buf); err != nil {
 		return fmt.Errorf("download archive: %w", err)
 	}
 	log.Printf("parse_experiment: archive downloaded (%d bytes)", buf.Len())
 
-	// 4. Open as zip
-	zipReader, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	// Save to temp file (LicelPack requires a file path)
+	tmpFile, err := os.CreateTemp("", "*.zip")
 	if err != nil {
-		return fmt.Errorf("open zip: %w", err)
+		return fmt.Errorf("create temp file: %w", err)
 	}
-	log.Printf("parse_experiment: archive contains %d entries", len(zipReader.File))
+	tmpPath := tmpFile.Name()
+	if _, err := tmpFile.Write(buf.Bytes()); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("write temp file: %w", err)
+	}
+	tmpFile.Close()
+	defer os.Remove(tmpPath)
 
-	// 5. Process each file in archive
-	for _, f := range zipReader.File {
-		if f.FileInfo().IsDir() {
-			continue
+	// Parse all files in the archive with LicelPack
+	lp, err := licelformat.NewLicelPackFromZip(tmpPath)
+	if err != nil {
+		return fmt.Errorf("new licel pack: %w", err)
+	}
+	log.Printf("parse_experiment: parsing complete: %d files, %d total profiles",
+		len(lp.Data), countProfiles(lp))
+
+	// Create LicelFile + LicelProfile records for each parsed file
+	for name, lf := range lp.Data {
+		log.Printf("parse_experiment: processing file %s (%d profiles)", name, len(lf.Profiles))
+
+		isBackground := strings.Contains(strings.ToLower(name), "background")
+
+		laserFreq := lf.Laser1Freq
+		if laserFreq == 0 && lf.Laser2Freq != 0 {
+			laserFreq = lf.Laser2Freq
+		}
+		if laserFreq == 0 && lf.Laser3Freq != 0 {
+			laserFreq = lf.Laser3Freq
 		}
 
-		log.Printf("parse_experiment: processing file %s", f.Name)
-
-		// 5a. Upload file to MinIO
-		objInfo, err := h.uploadFile(ctx, expUUID, f)
-		if err != nil {
-			return fmt.Errorf("upload file %s: %w", f.Name, err)
-		}
-
-		// 5b. Create StorageObject record
-		objPath, _ := domain.NewObjectPath(objInfo.Bucket, objInfo.Path)
-		storageObj := &domain.StorageObject{
-			ID:          uuid.New(),
-			Path:        objPath,
-			Size:        objInfo.Size,
-			ETag:        objInfo.ETag,
-			ContentType: objInfo.ContentType,
-			CreatedAt:   time.Now(),
-		}
-		storageObj, err = h.storageObjRepo.Create(ctx, storageObj)
-		if err != nil {
-			return fmt.Errorf("create storage object: %w", err)
-		}
-
-		// 5c. Create LicelFile record
-		timeRange, _ := domain.NewTimeRange(time.Now(), time.Now().Add(time.Hour))
+		timeRange, _ := domain.NewTimeRange(lf.MeasurementStartTime, lf.MeasurementStopTime)
 		licelFile := domain.NewLicelFile(
 			expUUID,
 			timeRange,
-			0,     // nDatasets
-			0,     // laserFreq
-			false, // isBackground
-			storageObj.ID,
-			domain.WithFilename(f.Name),
+			int32(lf.NDatasets),
+			int32(laserFreq),
+			isBackground,
+			archiveStorage.ID,
+			domain.WithFilename(name),
 		)
 		if err := h.licelFileRepo.Create(ctx, &licelFile); err != nil {
 			return fmt.Errorf("create licelfile: %w", err)
 		}
 
-		// TODO: Parse LICEL file contents, extract time range,
-		// measurement metadata, create LicelProfile records
-		// with actual data arrays.
-
-		log.Printf("parse_experiment: created licelfile %s for %s", licelFile.ID, f.Name)
+		for _, lp := range lf.Profiles {
+			profile, err := domain.NewLicelProfile(
+				licelFile.ID,
+				int32(lp.NDataPoints),
+				float32(lp.HighVoltage),
+				float32(lp.BinWidth),
+				float32(lp.Wavelength),
+				lp.Polarization,
+				lp.DeviceID,
+				int32(lp.NShots),
+				float32(lp.DiscrLevel),
+				lp.Data,
+			)
+			if err != nil {
+				return fmt.Errorf("create licel profile: %w", err)
+			}
+			if err := h.licelProfileRepo.Create(ctx, &profile); err != nil {
+				return fmt.Errorf("save licel profile: %w", err)
+			}
+		}
 	}
 
-	log.Printf("parse_experiment: experiment %s processed successfully (%d files)", expID, len(zipReader.File))
+	totalProfiles := countProfiles(lp)
+	log.Printf("parse_experiment: experiment %s done — %d files, %d profiles",
+		expID, len(lp.Data), totalProfiles)
 	return nil
 }
 
-// uploadFile uploads a single file from a zip archive to MinIO.
-func (h *ParseExperimentHandler) uploadFile(ctx context.Context, expID uuid.UUID, f *zip.File) (*ports.ObjectInfo, error) {
-	rc, err := f.Open()
-	if err != nil {
-		return nil, fmt.Errorf("open zip entry: %w", err)
+func countProfiles(lp *licelformat.LicelPack) int {
+	n := 0
+	for _, lf := range lp.Data {
+		n += len(lf.Profiles)
 	}
-	defer rc.Close()
-
-	data, err := io.ReadAll(rc)
-	if err != nil {
-		return nil, fmt.Errorf("read zip entry: %w", err)
-	}
-
-	path := fmt.Sprintf("%s/raw/%s", expID, f.Name)
-	return h.fileStorage.UploadBytes(ctx, defaultBucket, path, data, "application/octet-stream")
+	return n
 }
