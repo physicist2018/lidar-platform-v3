@@ -17,7 +17,7 @@ type Config struct {
 // Load reads configuration from environment variables.
 func Load() Config {
 	return Config{
-		DatabaseURL: env("DATABASE_URL", "postgresql://lidar_user:pass@localhost:5432/main_db?search_path=lidar&sslmode=disable"),
+		DatabaseURL: env("DATABASE_URL", "postgresql://lidar_user:pass@localhost:5432/main_db?search_path=lidar,public&sslmode=disable"),
 		MinIO: storage.Config{
 			Endpoint:  env("MINIO_ENDPOINT", "localhost:9000"),
 			AccessKey: env("MINIO_ACCESS_KEY", "minioadmin"),

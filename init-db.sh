@@ -4,6 +4,7 @@ set -e
 # Подключаемся к БД и выполняем SQL
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     -- Создаём схему identity, если её нет
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
     CREATE SCHEMA IF NOT EXISTS identity;
 
     -- Создаём пользователя identity_user, если его нет

@@ -1,6 +1,4 @@
 -- +goose Up
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE SCHEMA IF NOT EXISTS lidar;
 
 -- Таблица объектов хранилища (инфраструктурный реестр)
 CREATE TABLE lidar.storage_objects (
