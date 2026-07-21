@@ -24,9 +24,10 @@ func NewPostgresAtmosphereProfileRepository(dbtx db.DBTX) *PostgresAtmospherePro
 // Create persists a new atmosphere profile.
 func (r *PostgresAtmosphereProfileRepository) Create(ctx context.Context, profile *domain.AtmosphereProfile) error {
 	_, err := r.q.CreateAtmosphereProfile(ctx, db.CreateAtmosphereProfileParams{
-		Altitude:    profile.Altitude,
-		Temperature: profile.Temperature,
-		Pressure:    profile.Pressure,
+		ExperimentID: profile.ExperimentID,
+		Altitude:     profile.Altitude,
+		Temperature:  profile.Temperature,
+		Pressure:     profile.Pressure,
 	})
 	return err
 }
@@ -70,10 +71,11 @@ func (r *PostgresAtmosphereProfileRepository) Delete(ctx context.Context, id uui
 
 func mapAtmosphereProfile(u db.LidarAtmosphereProfile) *domain.AtmosphereProfile {
 	return &domain.AtmosphereProfile{
-		ID:          u.ID,
-		Altitude:    u.Altitude,
-		Temperature: u.Temperature,
-		Pressure:    u.Pressure,
-		CreatedAt:   u.CreatedAt,
+		ID:           u.ID,
+		ExperimentID: u.ExperimentID,
+		Altitude:     u.Altitude,
+		Temperature:  u.Temperature,
+		Pressure:     u.Pressure,
+		CreatedAt:    u.CreatedAt,
 	}
 }

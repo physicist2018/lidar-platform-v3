@@ -13,11 +13,12 @@ import (
 )
 
 type LidarAtmosphereProfile struct {
-	ID          uuid.UUID `json:"id"`
-	Altitude    []float64 `json:"altitude"`
-	Temperature []float64 `json:"temperature"`
-	Pressure    []float64 `json:"pressure"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           uuid.UUID `json:"id"`
+	Altitude     []float64 `json:"altitude"`
+	Temperature  []float64 `json:"temperature"`
+	Pressure     []float64 `json:"pressure"`
+	CreatedAt    time.Time `json:"created_at"`
+	ExperimentID uuid.UUID `json:"experiment_id"`
 }
 
 type LidarExperiment struct {

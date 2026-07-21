@@ -96,7 +96,7 @@ func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error 
 		if err != nil {
 			return fmt.Errorf("get meteo storage object: %w", err)
 		}
-		if _, err := h.processMeteoFile(ctx, meteoStorage); err != nil {
+		if _, err := h.processMeteoFile(ctx, expUUID, meteoStorage); err != nil {
 			return fmt.Errorf("process meteo: %w", err)
 		}
 	}
@@ -183,6 +183,8 @@ func (h *ParseExperimentHandler) processSingleLicelFile(
 // and creates an AtmosphereProfile record.
 func (h *ParseExperimentHandler) processMeteoFile(
 	ctx context.Context,
+	expUUID uuid.UUID,
+
 	storageObj *domain.StorageObject,
 ) (*domain.AtmosphereProfile, error) {
 	log.Printf("parse_experiment: processing meteo file %s/%s", storageObj.Path.Bucket, storageObj.Path.Path)
@@ -217,7 +219,7 @@ func (h *ParseExperimentHandler) processMeteoFile(
 
 		altitudes = append(altitudes, hght/1000.0) // m → km
 		temperatures = append(temperatures, temp)
-		    pressures = append(pressures, pres)
+		pressures = append(pressures, pres)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -228,7 +230,7 @@ func (h *ParseExperimentHandler) processMeteoFile(
 		return nil, fmt.Errorf("meteo file has no data rows")
 	}
 
-	profile, err := domain.NewAtmosphereProfile(altitudes, temperatures, pressures)
+	profile, err := domain.NewAtmosphereProfile(expUUID, altitudes, temperatures, pressures)
 	if err != nil {
 		return nil, fmt.Errorf("create atmosphere profile: %w", err)
 	}

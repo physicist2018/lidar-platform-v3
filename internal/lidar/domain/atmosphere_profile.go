@@ -9,25 +9,27 @@ import (
 
 // AtmosphereProfile is an entity representing a vertical profile of atmosphere measurements.
 type AtmosphereProfile struct {
-	ID          uuid.UUID
-	Altitude    []float64 // km
-	Temperature []float64 // °C
-	Pressure    []float64 // hPa
-	CreatedAt   time.Time
+	ID           uuid.UUID
+	ExperimentID uuid.UUID
+	Altitude     []float64 // km
+	Temperature  []float64 // °C
+	Pressure     []float64 // hPa
+	CreatedAt    time.Time
 }
 
 // NewAtmosphereProfile creates a new AtmosphereProfile with validated data arrays.
-func NewAtmosphereProfile(altitude, temperature, pressure []float64) (AtmosphereProfile, error) {
+func NewAtmosphereProfile(experimentID uuid.UUID, altitude, temperature, pressure []float64) (AtmosphereProfile, error) {
 	if len(altitude) != len(temperature) || len(altitude) != len(pressure) {
 		return AtmosphereProfile{}, fmt.Errorf("%w: got alt=%d, temp=%d, pres=%d",
 			ErrProfileDataMismatch, len(altitude), len(temperature), len(pressure))
 	}
 	return AtmosphereProfile{
-		ID:          uuid.New(),
-		Altitude:    altitude,
-		Temperature: temperature,
-		Pressure:    pressure,
-		CreatedAt:   time.Now(),
+		ID:           uuid.New(),
+		ExperimentID: experimentID,
+		Altitude:     altitude,
+		Temperature:  temperature,
+		Pressure:     pressure,
+		CreatedAt:    time.Now(),
 	}, nil
 }
 

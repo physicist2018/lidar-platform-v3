@@ -1,7 +1,7 @@
 -- Atmosphere Profiles
 -- name: CreateAtmosphereProfile :one
-INSERT INTO lidar.atmosphere_profiles (altitude, temperature, pressure)
-VALUES ($1, $2, $3)
+INSERT INTO lidar.atmosphere_profiles (experiment_id, altitude, temperature, pressure)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetAtmosphereProfileByID :one

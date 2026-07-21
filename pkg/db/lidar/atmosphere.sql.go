@@ -13,20 +13,26 @@ import (
 )
 
 const createAtmosphereProfile = `-- name: CreateAtmosphereProfile :one
-INSERT INTO lidar.atmosphere_profiles (altitude, temperature, pressure)
-VALUES ($1, $2, $3)
-RETURNING id, altitude, temperature, pressure, created_at
+INSERT INTO lidar.atmosphere_profiles (experiment_id, altitude, temperature, pressure)
+VALUES ($1, $2, $3, $4)
+RETURNING id, altitude, temperature, pressure, created_at, experiment_id
 `
 
 type CreateAtmosphereProfileParams struct {
-	Altitude    []float64 `json:"altitude"`
-	Temperature []float64 `json:"temperature"`
-	Pressure    []float64 `json:"pressure"`
+	ExperimentID uuid.UUID `json:"experiment_id"`
+	Altitude     []float64 `json:"altitude"`
+	Temperature  []float64 `json:"temperature"`
+	Pressure     []float64 `json:"pressure"`
 }
 
 // Atmosphere Profiles
 func (q *Queries) CreateAtmosphereProfile(ctx context.Context, arg CreateAtmosphereProfileParams) (LidarAtmosphereProfile, error) {
-	row := q.db.QueryRowContext(ctx, createAtmosphereProfile, pq.Array(arg.Altitude), pq.Array(arg.Temperature), pq.Array(arg.Pressure))
+	row := q.db.QueryRowContext(ctx, createAtmosphereProfile,
+		arg.ExperimentID,
+		pq.Array(arg.Altitude),
+		pq.Array(arg.Temperature),
+		pq.Array(arg.Pressure),
+	)
 	var i LidarAtmosphereProfile
 	err := row.Scan(
 		&i.ID,
@@ -34,6 +40,7 @@ func (q *Queries) CreateAtmosphereProfile(ctx context.Context, arg CreateAtmosph
 		pq.Array(&i.Temperature),
 		pq.Array(&i.Pressure),
 		&i.CreatedAt,
+		&i.ExperimentID,
 	)
 	return i, err
 }
@@ -48,7 +55,7 @@ func (q *Queries) DeleteAtmosphereProfile(ctx context.Context, id uuid.UUID) err
 }
 
 const getAtmosphereProfileByID = `-- name: GetAtmosphereProfileByID :one
-SELECT id, altitude, temperature, pressure, created_at FROM lidar.atmosphere_profiles WHERE id = $1
+SELECT id, altitude, temperature, pressure, created_at, experiment_id FROM lidar.atmosphere_profiles WHERE id = $1
 `
 
 func (q *Queries) GetAtmosphereProfileByID(ctx context.Context, id uuid.UUID) (LidarAtmosphereProfile, error) {
@@ -60,12 +67,13 @@ func (q *Queries) GetAtmosphereProfileByID(ctx context.Context, id uuid.UUID) (L
 		pq.Array(&i.Temperature),
 		pq.Array(&i.Pressure),
 		&i.CreatedAt,
+		&i.ExperimentID,
 	)
 	return i, err
 }
 
 const listAtmosphereProfiles = `-- name: ListAtmosphereProfiles :many
-SELECT id, altitude, temperature, pressure, created_at FROM lidar.atmosphere_profiles
+SELECT id, altitude, temperature, pressure, created_at, experiment_id FROM lidar.atmosphere_profiles
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -90,6 +98,7 @@ func (q *Queries) ListAtmosphereProfiles(ctx context.Context, arg ListAtmosphere
 			pq.Array(&i.Temperature),
 			pq.Array(&i.Pressure),
 			&i.CreatedAt,
+			&i.ExperimentID,
 		); err != nil {
 			return nil, err
 		}
