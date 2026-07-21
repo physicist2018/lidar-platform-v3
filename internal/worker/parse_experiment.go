@@ -1,11 +1,13 @@
 package worker
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -19,11 +21,12 @@ const defaultBucket = "experiments"
 
 // ParseExperimentHandler handles lidar.task.parse_experiment tasks.
 type ParseExperimentHandler struct {
-	experimentRepo   ports.ExperimentRepository
-	storageObjRepo   ports.StorageObjectRepository
-	fileStorage      ports.FileStorage
-	licelFileRepo    ports.LicelFileRepository
-	licelProfileRepo ports.LicelProfileRepository
+	experimentRepo        ports.ExperimentRepository
+	storageObjRepo        ports.StorageObjectRepository
+	fileStorage           ports.FileStorage
+	licelFileRepo         ports.LicelFileRepository
+	licelProfileRepo      ports.LicelProfileRepository
+	atmosphereProfileRepo ports.AtmosphereProfileRepository
 }
 
 // NewParseExperimentHandler creates a new ParseExperimentHandler.
@@ -33,13 +36,15 @@ func NewParseExperimentHandler(
 	fileStorage ports.FileStorage,
 	licelFileRepo ports.LicelFileRepository,
 	licelProfileRepo ports.LicelProfileRepository,
+	atmosphereProfileRepo ports.AtmosphereProfileRepository,
 ) *ParseExperimentHandler {
 	return &ParseExperimentHandler{
-		experimentRepo:   experimentRepo,
-		storageObjRepo:   storageObjRepo,
-		fileStorage:      fileStorage,
-		licelFileRepo:    licelFileRepo,
-		licelProfileRepo: licelProfileRepo,
+		experimentRepo:        experimentRepo,
+		storageObjRepo:        storageObjRepo,
+		fileStorage:           fileStorage,
+		licelFileRepo:         licelFileRepo,
+		licelProfileRepo:      licelProfileRepo,
+		atmosphereProfileRepo: atmosphereProfileRepo,
 	}
 }
 
@@ -82,6 +87,17 @@ func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error 
 		}
 		if err := h.processSingleLicelFile(ctx, expUUID, bgStorage, true); err != nil {
 			return fmt.Errorf("process background: %w", err)
+		}
+	}
+
+	// 3. Process meteo file (optional)
+	if exp.StorageRefs.MeteoID != nil {
+		meteoStorage, err := h.storageObjRepo.FindByID(ctx, *exp.StorageRefs.MeteoID)
+		if err != nil {
+			return fmt.Errorf("get meteo storage object: %w", err)
+		}
+		if _, err := h.processMeteoFile(ctx, meteoStorage); err != nil {
+			return fmt.Errorf("process meteo: %w", err)
 		}
 	}
 
@@ -152,7 +168,6 @@ func (h *ParseExperimentHandler) processSingleLicelFile(
 		return fmt.Errorf("parse licelfile: %w", err)
 	}
 
-	// Extract filename from path
 	parts := strings.Split(storageObj.Path.Path, "/")
 	filename := parts[len(parts)-1]
 
@@ -162,6 +177,68 @@ func (h *ParseExperimentHandler) processSingleLicelFile(
 
 	log.Printf("parse_experiment: single file processed — %d profiles", len(lf.Profiles))
 	return nil
+}
+
+// processMeteoFile downloads a meteo CSV, parses pressure/height/temperature columns,
+// and creates an AtmosphereProfile record.
+func (h *ParseExperimentHandler) processMeteoFile(
+	ctx context.Context,
+	storageObj *domain.StorageObject,
+) (*domain.AtmosphereProfile, error) {
+	log.Printf("parse_experiment: processing meteo file %s/%s", storageObj.Path.Bucket, storageObj.Path.Path)
+
+	var buf bytes.Buffer
+	if err := h.fileStorage.Download(ctx, storageObj.Path.Bucket, storageObj.Path.Path, &buf); err != nil {
+		return nil, fmt.Errorf("download meteo: %w", err)
+	}
+
+	var altitudes, temperatures, pressures []float64
+	scanner := bufio.NewScanner(bytes.NewReader(buf.Bytes()))
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		// Skip first 4 header lines
+		if lineNum <= 4 {
+			continue
+		}
+
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 3 {
+			continue
+		}
+
+		pres, err1 := strconv.ParseFloat(fields[0], 64)
+		hght, err2 := strconv.ParseFloat(fields[1], 64)
+		temp, err3 := strconv.ParseFloat(fields[2], 64)
+		if err1 != nil || err2 != nil || err3 != nil {
+			continue
+		}
+
+		altitudes = append(altitudes, hght/1000.0) // m → km
+		temperatures = append(temperatures, temp)
+		    pressures = append(pressures, pres)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan meteo: %w", err)
+	}
+
+	if len(altitudes) == 0 {
+		return nil, fmt.Errorf("meteo file has no data rows")
+	}
+
+	profile, err := domain.NewAtmosphereProfile(altitudes, temperatures, pressures)
+	if err != nil {
+		return nil, fmt.Errorf("create atmosphere profile: %w", err)
+	}
+
+	if err := h.atmosphereProfileRepo.Create(ctx, &profile); err != nil {
+		return nil, fmt.Errorf("save atmosphere profile: %w", err)
+	}
+
+	log.Printf("parse_experiment: meteo processed — %d data points", len(altitudes))
+	return &profile, nil
 }
 
 // createLicelFileRecords creates a LicelFile and its LicelProfiles from a parsed LICEL file.
