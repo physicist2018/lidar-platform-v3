@@ -21,8 +21,26 @@
 - **GET /api/v1/tasks/{taskID}**: new API endpoint to query task status.
   - `GetTaskStatusUseCase`, handler `HandleGetTaskStatus`, router registration.
   - Returns `200` with full status, `404` for unknown task, `400` for invalid UUID.
+- **Tests** (65 тестов, все проходят):
+  - JWT middleware (11 тестов): валидный токен, отсутствующий заголовок, пустой Bearer,
+    неверный формат, невалидный токен, неверный секрет, истекший токен, пустой secret fallback,
+    извлечение user_id из контекста, extractBearerToken (6 кейсов).
+  - Task handler (7 тестов): HandleCreateTask (invalid JSON, пустой ProfileID, пустой TaskType),
+    HandleGetTaskStatus (200, invalid UUID, 404 not found, missing param).
+  - Router (4 теста): /health без auth, /api/v1/* без auth (3 endpoints),
+    с валидным токеном (501 = auth passed), с истекшим токеном (401).
+  - Domain (17 тестов): TaskRecord (3), Experiment (2), TimeRange (3), GeoLocation (3),
+    SoftDelete/Restore, LicelFile (3), LicelProfile (2), AtmosphereProfile (2),
+    ObjectPath (2), StorageObject.
+  - Use cases (6 тестов): CreateTask — пустой ProfileID, пустой TaskType, успех (с проверкой
+    создания TaskRecord и публикации в NATS). GetTaskStatus — found, not found, with params.
+  - Repository (8 тестов, с реальным PostgreSQL через testcontainers): Create + FindByID,
+    Create с ExperimentID, дубликат ID, UpdateStatus (processing → completed),
+    UpdateStatus (failed с error_message), FindByID not found, FindByExperimentID, FindAll.
 - **Documentation**: `docs/async-tasks.md` — guide for adding new async tasks with status
   tracking.
+- **Test dependencies**: `github.com/testcontainers/testcontainers-go` (v0.43.0) для
+  интеграционных тестов с реальной PostgreSQL.
 
 ### Changed
 - **`ParseExperimentHandler.processArchive`**: now returns `(domain.TimeRange, error)` to
