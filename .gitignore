@@ -6,6 +6,7 @@
 *.dylib
 /identity
 /lidar
+/worker
 
 # Test binary, built with `go test -c`
 *.test

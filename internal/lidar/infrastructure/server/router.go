@@ -33,6 +33,14 @@ func NewRouter(expHandler *ExperimentHandler, taskHandler *TaskHandler) http.Han
 			}
 			taskHandler.HandleCreateTask(w, r)
 		})
+
+		r.Get("/tasks/{taskID}", func(w http.ResponseWriter, r *http.Request) {
+			if taskHandler == nil {
+				RespondWithError(w, http.StatusNotImplemented, "task status not available")
+				return
+			}
+			taskHandler.HandleGetTaskStatus(w, r)
+		})
 	})
 
 	return r

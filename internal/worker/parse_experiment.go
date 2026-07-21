@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/physicist2018/licelfile/v2/licelformat"
@@ -16,8 +17,6 @@ import (
 	"github.com/physcist2018/lidar-platform-v3/internal/lidar/domain"
 	"github.com/physcist2018/lidar-platform-v3/internal/lidar/ports"
 )
-
-const defaultBucket = "experiments"
 
 // ParseExperimentHandler handles lidar.task.parse_experiment tasks.
 type ParseExperimentHandler struct {
@@ -27,6 +26,7 @@ type ParseExperimentHandler struct {
 	licelFileRepo         ports.LicelFileRepository
 	licelProfileRepo      ports.LicelProfileRepository
 	atmosphereProfileRepo ports.AtmosphereProfileRepository
+	taskStatusRepo        ports.TaskStatusRepository
 }
 
 // NewParseExperimentHandler creates a new ParseExperimentHandler.
@@ -37,6 +37,7 @@ func NewParseExperimentHandler(
 	licelFileRepo ports.LicelFileRepository,
 	licelProfileRepo ports.LicelProfileRepository,
 	atmosphereProfileRepo ports.AtmosphereProfileRepository,
+	taskStatusRepo ports.TaskStatusRepository,
 ) *ParseExperimentHandler {
 	return &ParseExperimentHandler{
 		experimentRepo:        experimentRepo,
@@ -45,6 +46,7 @@ func NewParseExperimentHandler(
 		licelFileRepo:         licelFileRepo,
 		licelProfileRepo:      licelProfileRepo,
 		atmosphereProfileRepo: atmosphereProfileRepo,
+		taskStatusRepo:        taskStatusRepo,
 	}
 }
 
@@ -61,31 +63,50 @@ func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error 
 		return fmt.Errorf("parse experiment id: %w", err)
 	}
 
+	h.updateTaskStatus(ctx, expUUID, domain.TaskProcessing, "")
+
 	exp, err := h.experimentRepo.FindByID(ctx, expUUID)
 	if err != nil {
+		h.failTask(ctx, expUUID, err)
 		return fmt.Errorf("get experiment: %w", err)
 	}
 
 	if exp.StorageRefs.ExperimentDataID == nil {
-		return fmt.Errorf("experiment %s has no archive storage reference", expID)
+		err := fmt.Errorf("experiment %s has no archive storage reference", expID)
+		h.failTask(ctx, expUUID, err)
+		return err
 	}
 	archiveStorage, err := h.storageObjRepo.FindByID(ctx, *exp.StorageRefs.ExperimentDataID)
 	if err != nil {
+		h.failTask(ctx, expUUID, err)
 		return fmt.Errorf("get archive storage object: %w", err)
 	}
 
 	// 1. Process experiment archive (zip)
-	if err := h.processArchive(ctx, expUUID, archiveStorage, false); err != nil {
+	timeRange, err := h.processArchive(ctx, expUUID, archiveStorage)
+	if err != nil {
+		h.failTask(ctx, expUUID, err)
 		return fmt.Errorf("process archive: %w", err)
+	}
+
+	// Update experiment with actual TimeRange spanning from the earliest
+	// file start to the latest file stop across all LICEL files in the archive.
+	exp.TimeRange = timeRange
+	exp.UpdatedAt = time.Now()
+	if err := h.experimentRepo.Update(ctx, exp); err != nil {
+		h.failTask(ctx, expUUID, err)
+		return fmt.Errorf("update experiment time range: %w", err)
 	}
 
 	// 2. Process background file (single LICEL file, optional)
 	if exp.StorageRefs.BackgroundID != nil {
 		bgStorage, err := h.storageObjRepo.FindByID(ctx, *exp.StorageRefs.BackgroundID)
 		if err != nil {
+			h.failTask(ctx, expUUID, err)
 			return fmt.Errorf("get background storage object: %w", err)
 		}
 		if err := h.processSingleLicelFile(ctx, expUUID, bgStorage, true); err != nil {
+			h.failTask(ctx, expUUID, err)
 			return fmt.Errorf("process background: %w", err)
 		}
 	}
@@ -94,58 +115,97 @@ func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error 
 	if exp.StorageRefs.MeteoID != nil {
 		meteoStorage, err := h.storageObjRepo.FindByID(ctx, *exp.StorageRefs.MeteoID)
 		if err != nil {
+			h.failTask(ctx, expUUID, err)
 			return fmt.Errorf("get meteo storage object: %w", err)
 		}
 		if _, err := h.processMeteoFile(ctx, expUUID, meteoStorage); err != nil {
+			h.failTask(ctx, expUUID, err)
 			return fmt.Errorf("process meteo: %w", err)
 		}
 	}
 
+	h.updateTaskStatus(ctx, expUUID, domain.TaskCompleted, "")
 	log.Printf("parse_experiment: experiment %s done", expID)
 	return nil
 }
 
+// updateTaskStatus best-effort updates the task status in the database.
+func (h *ParseExperimentHandler) updateTaskStatus(ctx context.Context, id uuid.UUID, status domain.TaskStatus, errMsg string) {
+	if h.taskStatusRepo == nil {
+		return
+	}
+	if err := h.taskStatusRepo.UpdateStatus(ctx, id, status, errMsg); err != nil {
+		log.Printf("parse_experiment: update task status: %v", err)
+	}
+}
+
+// failTask best-effort marks the task as failed with the given error.
+func (h *ParseExperimentHandler) failTask(ctx context.Context, id uuid.UUID, err error) {
+	if h.taskStatusRepo == nil {
+		return
+	}
+	if err := h.taskStatusRepo.UpdateStatus(ctx, id, domain.TaskFailed, err.Error()); err != nil {
+		log.Printf("parse_experiment: update task status: %v", err)
+	}
+}
+
 // processArchive downloads a zip archive from MinIO, parses all LICEL files inside,
-// and creates LicelFile + LicelProfile records.
+// creates LicelFile + LicelProfile records, and returns the global TimeRange
+// spanning from the earliest start to the latest stop across all files.
 func (h *ParseExperimentHandler) processArchive(
 	ctx context.Context,
 	expUUID uuid.UUID,
 	storageObj *domain.StorageObject,
-	isBackground bool,
-) error {
+) (domain.TimeRange, error) {
 	log.Printf("parse_experiment: processing archive %s/%s", storageObj.Path.Bucket, storageObj.Path.Path)
 
 	var buf bytes.Buffer
 	if err := h.fileStorage.Download(ctx, storageObj.Path.Bucket, storageObj.Path.Path, &buf); err != nil {
-		return fmt.Errorf("download archive: %w", err)
+		return domain.TimeRange{}, fmt.Errorf("download archive: %w", err)
 	}
 
 	tmpFile, err := os.CreateTemp("", "*.zip")
 	if err != nil {
-		return fmt.Errorf("create temp file: %w", err)
+		return domain.TimeRange{}, fmt.Errorf("create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	if _, err := tmpFile.Write(buf.Bytes()); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpPath)
-		return fmt.Errorf("write temp file: %w", err)
-	}
 	tmpFile.Close()
 	defer os.Remove(tmpPath)
 
-	lp, err := licelformat.NewLicelPackFromZip(tmpPath)
-	if err != nil {
-		return fmt.Errorf("new licel pack: %w", err)
+	if err := os.WriteFile(tmpPath, buf.Bytes(), 0644); err != nil {
+		return domain.TimeRange{}, fmt.Errorf("write temp file: %w", err)
 	}
 
+	lp, err := licelformat.NewLicelPackFromZip(tmpPath)
+	if err != nil {
+		return domain.TimeRange{}, fmt.Errorf("new licel pack: %w", err)
+	}
+
+	var globalStart, globalEnd time.Time
 	for name, lf := range lp.Data {
-		if err := h.createLicelFileRecords(ctx, expUUID, name, lf, storageObj.ID, isBackground); err != nil {
-			return err
+		if globalStart.IsZero() || lf.MeasurementStartTime.Before(globalStart) {
+			globalStart = lf.MeasurementStartTime
+		}
+		if globalEnd.IsZero() || lf.MeasurementStopTime.After(globalEnd) {
+			globalEnd = lf.MeasurementStopTime
+		}
+
+		if err := h.createLicelFileRecords(ctx, expUUID, name, lf, storageObj.ID, false); err != nil {
+			return domain.TimeRange{}, err
 		}
 	}
 
+	if globalStart.IsZero() || globalEnd.IsZero() {
+		return domain.TimeRange{}, fmt.Errorf("archive contains no licel files")
+	}
+
+	timeRange, err := domain.NewTimeRange(globalStart, globalEnd)
+	if err != nil {
+		return domain.TimeRange{}, fmt.Errorf("compute experiment time range: %w", err)
+	}
+
 	log.Printf("parse_experiment: archive processed — %d files, %d profiles", len(lp.Data), countProfiles(lp))
-	return nil
+	return timeRange, nil
 }
 
 // processSingleLicelFile downloads a single LICEL file from MinIO, parses it,
@@ -184,7 +244,6 @@ func (h *ParseExperimentHandler) processSingleLicelFile(
 func (h *ParseExperimentHandler) processMeteoFile(
 	ctx context.Context,
 	expUUID uuid.UUID,
-
 	storageObj *domain.StorageObject,
 ) (*domain.AtmosphereProfile, error) {
 	log.Printf("parse_experiment: processing meteo file %s/%s", storageObj.Path.Bucket, storageObj.Path.Path)
@@ -194,40 +253,9 @@ func (h *ParseExperimentHandler) processMeteoFile(
 		return nil, fmt.Errorf("download meteo: %w", err)
 	}
 
-	var altitudes, temperatures, pressures []float64
-	scanner := bufio.NewScanner(bytes.NewReader(buf.Bytes()))
-	lineNum := 0
-
-	for scanner.Scan() {
-		lineNum++
-		// Skip first 4 header lines
-		if lineNum <= 4 {
-			continue
-		}
-
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 3 {
-			continue
-		}
-
-		pres, err1 := strconv.ParseFloat(fields[0], 64)
-		hght, err2 := strconv.ParseFloat(fields[1], 64)
-		temp, err3 := strconv.ParseFloat(fields[2], 64)
-		if err1 != nil || err2 != nil || err3 != nil {
-			continue
-		}
-
-		altitudes = append(altitudes, hght/1000.0) // m → km
-		temperatures = append(temperatures, temp)
-		pressures = append(pressures, pres)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scan meteo: %w", err)
-	}
-
-	if len(altitudes) == 0 {
-		return nil, fmt.Errorf("meteo file has no data rows")
+	altitudes, temperatures, pressures, err := parseMeteoCSV(buf.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("parse meteo: %w", err)
 	}
 
 	profile, err := domain.NewAtmosphereProfile(expUUID, altitudes, temperatures, pressures)
@@ -254,20 +282,13 @@ func (h *ParseExperimentHandler) createLicelFileRecords(
 ) error {
 	log.Printf("parse_experiment: creating records for %s (%d profiles)", filename, len(lf.Profiles))
 
-	laserFreq := lf.Laser1Freq
-	if laserFreq == 0 && lf.Laser2Freq != 0 {
-		laserFreq = lf.Laser2Freq
-	}
-	if laserFreq == 0 && lf.Laser3Freq != 0 {
-		laserFreq = lf.Laser3Freq
-	}
-
+	laserFreq := resolveLaserFrequency(lf)
 	timeRange, _ := domain.NewTimeRange(lf.MeasurementStartTime, lf.MeasurementStopTime)
 	licelFile := domain.NewLicelFile(
 		expUUID,
 		timeRange,
 		int32(lf.NDatasets),
-		int32(laserFreq),
+		laserFreq,
 		isBackground,
 		rawStorageID,
 		domain.WithFilename(filename),
@@ -297,6 +318,59 @@ func (h *ParseExperimentHandler) createLicelFileRecords(
 		}
 	}
 	return nil
+}
+
+// resolveLaserFrequency returns the first non-zero laser frequency from the LICEL file.
+func resolveLaserFrequency(lf licelformat.LicelFile) int32 {
+	freq := lf.Laser1Freq
+	if freq == 0 && lf.Laser2Freq != 0 {
+		freq = lf.Laser2Freq
+	}
+	if freq == 0 && lf.Laser3Freq != 0 {
+		freq = lf.Laser3Freq
+	}
+	return int32(freq)
+}
+
+// parseMeteoCSV parses a meteo CSV buffer. Expected format:
+// first 4 header lines, then columns: pressure (hPa), altitude (m), temperature (°C).
+// Converts units: m → km, °C → K, hPa → Pa.
+func parseMeteoCSV(data []byte) (altitudes, temperatures, pressures []float64, err error) {
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		if lineNum <= 4 {
+			continue
+		}
+
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 3 {
+			continue
+		}
+
+		pres, err1 := strconv.ParseFloat(fields[0], 64)
+		hght, err2 := strconv.ParseFloat(fields[1], 64)
+		temp, err3 := strconv.ParseFloat(fields[2], 64)
+		if err1 != nil || err2 != nil || err3 != nil {
+			continue
+		}
+
+		altitudes = append(altitudes, hght/1000.0)       // m → km
+		temperatures = append(temperatures, temp+273.15) // °C → K
+		pressures = append(pressures, pres*100)          // hPa → Pa
+	}
+
+	if scanErr := scanner.Err(); scanErr != nil {
+		return nil, nil, nil, fmt.Errorf("scan meteo: %w", scanErr)
+	}
+
+	if len(altitudes) == 0 {
+		return nil, nil, nil, fmt.Errorf("meteo file has no data rows")
+	}
+
+	return altitudes, temperatures, pressures, nil
 }
 
 func countProfiles(lp *licelformat.LicelPack) int {

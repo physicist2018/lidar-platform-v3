@@ -60,6 +60,7 @@ func main() {
 	// ---------------------------------------------------------------
 	experimentRepo := repository.NewPostgresExperimentRepository(dbConn)
 	storageObjRepo := repository.NewPostgresStorageObjectRepository(dbConn)
+	taskStatusRepo := repository.NewPostgresTaskStatusRepository(dbConn)
 
 	// ---------------------------------------------------------------
 	// 3. MinIO
@@ -87,14 +88,15 @@ func main() {
 	// ---------------------------------------------------------------
 	// 5. Use cases
 	// ---------------------------------------------------------------
-	createExpUC := application.NewCreateExperimentUseCase(fileStorage, storageObjRepo, experimentRepo, msgQueue)
-	createTaskUC := application.NewCreateTaskUseCase(msgQueue)
+	createExpUC := application.NewCreateExperimentUseCase(fileStorage, storageObjRepo, experimentRepo, msgQueue, taskStatusRepo)
+	createTaskUC := application.NewCreateTaskUseCase(msgQueue, taskStatusRepo)
+	getTaskStatusUC := application.NewGetTaskStatusUseCase(taskStatusRepo)
 
 	// ---------------------------------------------------------------
 	// 6. HTTP server
 	// ---------------------------------------------------------------
 	expHandler := server.NewExperimentHandler(createExpUC)
-	taskHandler := server.NewTaskHandler(createTaskUC)
+	taskHandler := server.NewTaskHandler(createTaskUC, getTaskStatusUC)
 	router := server.NewRouter(expHandler, taskHandler)
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: router}

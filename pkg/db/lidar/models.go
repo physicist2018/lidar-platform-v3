@@ -6,6 +6,7 @@ package lidar
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -96,4 +97,17 @@ type LidarStorageObject struct {
 	ContentType sql.NullString        `json:"content_type"`
 	Metadata    pqtype.NullRawMessage `json:"metadata"`
 	CreatedAt   time.Time             `json:"created_at"`
+}
+
+type LidarTaskStatus struct {
+	ID           uuid.UUID       `json:"id"`
+	Subject      string          `json:"subject"`
+	Status       string          `json:"status"`
+	ExperimentID uuid.NullUUID   `json:"experiment_id"`
+	TaskParams   json.RawMessage `json:"task_params"`
+	ErrorMessage sql.NullString  `json:"error_message"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+	StartedAt    sql.NullTime    `json:"started_at"`
+	FinishedAt   sql.NullTime    `json:"finished_at"`
 }

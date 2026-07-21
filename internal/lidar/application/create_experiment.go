@@ -50,10 +50,11 @@ type CreateExperimentResponse struct {
 
 // CreateExperimentUseCase orchestrates file upload and experiment creation.
 type CreateExperimentUseCase struct {
-	storage    ports.FileStorage
-	storageObj ports.StorageObjectRepository
-	experiment ports.ExperimentRepository
-	queue      ports.MessageQueue
+	storage        ports.FileStorage
+	storageObj     ports.StorageObjectRepository
+	experiment     ports.ExperimentRepository
+	queue          ports.MessageQueue
+	taskStatusRepo ports.TaskStatusRepository
 }
 
 // NewCreateExperimentUseCase creates a new CreateExperimentUseCase.
@@ -62,12 +63,14 @@ func NewCreateExperimentUseCase(
 	storageObj ports.StorageObjectRepository,
 	experiment ports.ExperimentRepository,
 	queue ports.MessageQueue,
+	taskStatusRepo ports.TaskStatusRepository,
 ) *CreateExperimentUseCase {
 	return &CreateExperimentUseCase{
-		storage:    storage,
-		storageObj: storageObj,
-		experiment: experiment,
-		queue:      queue,
+		storage:        storage,
+		storageObj:     storageObj,
+		experiment:     experiment,
+		queue:          queue,
+		taskStatusRepo: taskStatusRepo,
 	}
 }
 
@@ -122,7 +125,20 @@ func (uc *CreateExperimentUseCase) Execute(ctx context.Context, req *CreateExper
 		return nil, fmt.Errorf("create experiment: %w", err)
 	}
 
-	// 5. Publish async task.
+	// 5. Create task status record.
+	if uc.taskStatusRepo != nil {
+		taskRecord := domain.NewTaskRecord(
+			expID,
+			string(ports.SubjectParseExperiment),
+			&expID,
+			nil,
+		)
+		if err := uc.taskStatusRepo.Create(ctx, &taskRecord); err != nil {
+			log.Printf("create task status: %v", err)
+		}
+	}
+
+	// 6. Publish async task.
 	if uc.queue != nil {
 		if err := uc.queue.Publish(ctx, ports.SubjectParseExperiment, []byte(expID.String()), expID.String()); err != nil {
 			log.Printf("publish task: %v", err)
