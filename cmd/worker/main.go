@@ -51,6 +51,8 @@ func main() {
 	// ---------------------------------------------------------------
 	experimentRepo := repository.NewPostgresExperimentRepository(dbConn)
 	storageObjRepo := repository.NewPostgresStorageObjectRepository(dbConn)
+	licelFileRepo := repository.NewPostgresLicelFileRepository(dbConn)
+	licelProfileRepo := repository.NewPostgresLicelProfileRepository(dbConn)
 
 	// ---------------------------------------------------------------
 	// 3. MinIO
@@ -76,7 +78,7 @@ func main() {
 	// ---------------------------------------------------------------
 	w := worker.New(msgQueue)
 	w.Register(
-		worker.NewParseExperimentHandler(experimentRepo, storageObjRepo, fileStorage),
+		worker.NewParseExperimentHandler(experimentRepo, storageObjRepo, fileStorage, licelFileRepo, licelProfileRepo),
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
