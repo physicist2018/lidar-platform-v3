@@ -15,6 +15,11 @@ services:
       start_period: 5s
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
 
   minio:
     image: minio/minio:latest
@@ -28,6 +33,11 @@ services:
     networks:
       - frontend
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
 
   nats:
     image: nats:alpine
@@ -36,6 +46,11 @@ services:
       - nats_data:/data
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
 
   nginx:
     build: ./nginx
@@ -46,8 +61,14 @@ services:
       - identity
       - lidar
       - minio
+      - adminer
     networks:
       - frontend
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
 
   identity:
     build:
@@ -70,6 +91,11 @@ services:
     networks:
       - frontend
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
 
   lidar:
     build:
@@ -95,6 +121,11 @@ services:
     networks:
       - frontend
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
 
   worker:
     build:
@@ -116,6 +147,25 @@ services:
         condition: service_started
     networks:
       - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+  adminer:
+    image: adminer:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
 
 networks:
   frontend:

@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- **Adminer** — лёгкий веб-клиент для управления PostgreSQL, доступен через nginx
+  по адресу `https://localhost/adminer/`. Заменил pgAdmin (проще, быстрее, не хранит
+  конфигурации на диске).
 - **JWT authentication**: all `/api/v1/*` endpoints in the lidar service now require a
   valid Bearer JWT issued by the identity service.
   - `JWTAuthMiddleware` — chi middleware that validates HS256 JWTs against `JWT_SECRET`.
@@ -53,6 +56,9 @@
   - `NewParseExperimentHandler` — added `taskStatusRepo` parameter.
   - `NewTaskHandler` — added `getTaskStatusUC` parameter.
 - **`.gitignore`**: added `/worker` binary.
+- **`docker-compose.yml`**: pgAdmin заменён на Adminer (`adminer:latest`) —
+  более лёгкий и простой клиент для PostgreSQL, доступен через `/adminer/`.
+- **`nginx/nginx.conf`**: location `/pgadmin/` заменён на `/adminer/` (proxy → adminer:8080).
 
 ### Fixed
 - **`scripts/auth.sh`**: default `IDENTITY_URL` port corrected from `:8080` to `:8090`
@@ -64,3 +70,4 @@
 - Debug logging from `internal/identity/infrastructure/auth/jwt.go` and
   `internal/lidar/infrastructure/server/auth.go` after root cause analysis.
 - `check_hmac/` — temporary test directory.
+- `pgadmin/` — заменён на Adminer.
