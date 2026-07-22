@@ -8,7 +8,7 @@ set -euo pipefail
 #   ./scripts/create_experiment.sh
 #   URL=http://localhost:9999 ./scripts/create_experiment.sh
 
-URL="${URL:-http://localhost:8091}/api/v1/experiments/create"
+URL="${URL:-https://localhost}/api/v1/experiments/create"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TESTDATA_DIR="$(cd "$SCRIPT_DIR/../testdata" && pwd)"
@@ -18,6 +18,7 @@ echo "→ testdata: $TESTDATA_DIR"
 echo ""
 
 curl -k -v -X POST "$URL" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDg1NGE5OGUtYzYwNC00NDY3LTg4NTgtMzEzMTIxYThiNTg3IiwiZXhwIjoxNzg0NzA3NDI3LCJpYXQiOjE3ODQ2MjEwMjd9.tyzox8IOBVacU3xKQtv7etywrF6a_oi6UQmcVBgyAFs" \
   -F "title=Test Experiment" \
   -F "zenith_angle=45.5" \
   -F "latitude=43.1" \

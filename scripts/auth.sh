@@ -15,7 +15,7 @@ set -euo pipefail
 #   IDENTITY_URL=http://localhost:8090 ./scripts/auth.sh login user@ex.com pass
 # ──────────────────────────────────────────────────────────────────────────────
 
-IDENTITY_URL="${IDENTITY_URL:-http://localhost:8090}"
+IDENTITY_URL="${IDENTITY_URL:-https://localhost}"
 TOKEN_FILE="${TOKEN_FILE:-/tmp/lidar_token.txt}"
 
 # ==============================================================================
@@ -26,7 +26,7 @@ register() {
     local password="$2"
 
     echo "==> Registering user: $email"
-    response=$(curl -s -w "\n%{http_code}" -X POST "$IDENTITY_URL/register" \
+    response=$(curl -k -s -w "\n%{http_code}" -X POST "$IDENTITY_URL/register" \
         -H "Content-Type: application/json" \
         -d "$(cat <<EOF
 {"email": "$email", "password": "$password"}
