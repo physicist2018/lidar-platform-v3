@@ -150,6 +150,65 @@ func (q *Queries) ListExperiments(ctx context.Context, arg ListExperimentsParams
 	return items, nil
 }
 
+const listExperimentsByTimeRange = `-- name: ListExperimentsByTimeRange :many
+SELECT id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at FROM lidar.experiments
+WHERE deleted_at IS NULL
+  AND experiment_start >= $1
+  AND experiment_end <= $2
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type ListExperimentsByTimeRangeParams struct {
+	ExperimentStart time.Time `json:"experiment_start"`
+	ExperimentEnd   time.Time `json:"experiment_end"`
+	Limit           int32     `json:"limit"`
+	Offset          int32     `json:"offset"`
+}
+
+func (q *Queries) ListExperimentsByTimeRange(ctx context.Context, arg ListExperimentsByTimeRangeParams) ([]LidarExperiment, error) {
+	rows, err := q.db.QueryContext(ctx, listExperimentsByTimeRange,
+		arg.ExperimentStart,
+		arg.ExperimentEnd,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LidarExperiment
+	for rows.Next() {
+		var i LidarExperiment
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Comments,
+			&i.ZenithAngle,
+			&i.ExperimentStart,
+			&i.ExperimentEnd,
+			&i.Longitude,
+			&i.Latitude,
+			&i.ExperimentsStorageID,
+			&i.BackgroundStorageID,
+			&i.MeteoStorageID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const restoreExperiment = `-- name: RestoreExperiment :one
 UPDATE lidar.experiments SET deleted_at = NULL, updated_at = now() WHERE id = $1
 RETURNING id, title, comments, zenith_angle, experiment_start, experiment_end, longitude, latitude, experiments_storage_id, background_storage_id, meteo_storage_id, created_at, updated_at, deleted_at

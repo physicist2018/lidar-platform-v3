@@ -21,6 +21,14 @@ func NewRouter(expHandler *ExperimentHandler, taskHandler *TaskHandler, jwtSecre
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(JWTAuthMiddleware(jwtSecret))
 
+		r.Get("/experiments/list", func(w http.ResponseWriter, r *http.Request) {
+			if expHandler == nil {
+				RespondWithError(w, http.StatusNotImplemented, "experiment listing not available")
+				return
+			}
+			expHandler.HandleListExperiments(w, r)
+		})
+
 		r.Post("/experiments/create", func(w http.ResponseWriter, r *http.Request) {
 			if expHandler == nil {
 				RespondWithError(w, http.StatusNotImplemented, "experiment creation not available")

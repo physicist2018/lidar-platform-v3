@@ -38,7 +38,7 @@ func (m *mockCreateExperimentUC) Execute(ctx context.Context, req *application.C
 // ---------------------------------------------------------------------------
 
 func newMockHandler(fn func(ctx context.Context, req *application.CreateExperimentRequest) (*application.CreateExperimentResponse, error)) *ExperimentHandler {
-	return NewExperimentHandler(&mockCreateExperimentUC{executeFunc: fn})
+	return NewExperimentHandler(&mockCreateExperimentUC{executeFunc: fn}, nil)
 }
 
 func buildMultipart(t *testing.T, fields map[string]string, files map[string]string) (body bytes.Buffer, contentType string) {

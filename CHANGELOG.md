@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- **GET /api/v1/experiments/list** — новый эндпоинт для получения списка экспериментов
+  с фильтрацией по временному диапазону.
+  - `GET /api/v1/experiments/list` — все эксперименты
+  - `GET /api/v1/experiments/list?start_time=2026-01-01T00:00:00Z&end_time=2026-12-31T23:59:59Z` — по диапазону
+  - `start_time` и `end_time` опциональны (RFC3339), пагинация через `limit`/`offset`
+  - `ListExperimentsUseCase`, хендлер `HandleListExperiments`, sqlc-запрос `ListExperimentsByTimeRange`
 - **Adminer** — лёгкий веб-клиент для управления PostgreSQL, доступен через nginx
   по адресу `https://localhost/adminer/`. Заменил pgAdmin (проще, быстрее, не хранит
   конфигурации на диске).

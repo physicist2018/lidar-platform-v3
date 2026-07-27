@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/physcist2018/lidar-platform-v3/internal/lidar/application"
 )
@@ -14,14 +15,23 @@ type CreateExperimentUseCase interface {
 	Execute(ctx context.Context, req *application.CreateExperimentRequest) (*application.CreateExperimentResponse, error)
 }
 
+// ListExperimentsUseCase is the interface for listing experiments.
+type ListExperimentsUseCase interface {
+	Execute(ctx context.Context, startTime, endTime time.Time, limit, offset int) (*application.ListExperimentsResponse, error)
+}
+
 // ExperimentHandler handles HTTP requests for experiments.
 type ExperimentHandler struct {
 	createUC CreateExperimentUseCase
+	listUC   ListExperimentsUseCase
 }
 
 // NewExperimentHandler creates a new ExperimentHandler.
-func NewExperimentHandler(createUC CreateExperimentUseCase) *ExperimentHandler {
-	return &ExperimentHandler{createUC: createUC}
+func NewExperimentHandler(createUC CreateExperimentUseCase, listUC ListExperimentsUseCase) *ExperimentHandler {
+	return &ExperimentHandler{
+		createUC: createUC,
+		listUC:   listUC,
+	}
 }
 
 // HandleCreateExperiment handles POST /api/v1/experiments/create with multipart form data.
@@ -106,4 +116,52 @@ func (h *ExperimentHandler) HandleCreateExperiment(w http.ResponseWriter, r *htt
 	}
 
 	RespondWithJSON(w, http.StatusCreated, result)
+}
+
+// HandleListExperiments handles GET /api/v1/experiments/list.
+func (h *ExperimentHandler) HandleListExperiments(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+
+	var startTime, endTime time.Time
+
+	if st := q.Get("start_time"); st != "" {
+		t, err := time.Parse(time.RFC3339, st)
+		if err != nil {
+			RespondWithError(w, http.StatusBadRequest, "invalid start_time format, use RFC3339 (e.g. 2026-01-01T00:00:00Z)")
+			return
+		}
+		startTime = t
+	}
+
+	if et := q.Get("end_time"); et != "" {
+		t, err := time.Parse(time.RFC3339, et)
+		if err != nil {
+			RespondWithError(w, http.StatusBadRequest, "invalid end_time format, use RFC3339 (e.g. 2026-01-01T00:00:00Z)")
+			return
+		}
+		endTime = t
+	}
+
+	// Default limit/offset
+	limit := 100
+	if l := q.Get("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			limit = v
+		}
+	}
+	offset := 0
+	if o := q.Get("offset"); o != "" {
+		if v, err := strconv.Atoi(o); err == nil && v >= 0 {
+			offset = v
+		}
+	}
+
+	result, err := h.listUC.Execute(r.Context(), startTime, endTime, limit, offset)
+	if err != nil {
+		log.Printf("list experiments error: %v", err)
+		RespondWithError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, result)
 }

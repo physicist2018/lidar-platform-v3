@@ -47,3 +47,11 @@ UPDATE lidar.experiments SET deleted_at = now(), updated_at = now() WHERE id = $
 -- name: RestoreExperiment :one
 UPDATE lidar.experiments SET deleted_at = NULL, updated_at = now() WHERE id = $1
 RETURNING *;
+
+-- name: ListExperimentsByTimeRange :many
+SELECT * FROM lidar.experiments
+WHERE deleted_at IS NULL
+  AND experiment_start >= $1
+  AND experiment_end <= $2
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4;

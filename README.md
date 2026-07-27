@@ -9,6 +9,7 @@ applies background correction, and prepares data for atmospheric analysis.
 HTTP API (cmd/lidar)
   ├── POST   /api/v1/experiments/create  — upload experiment files
   ├── POST   /api/v1/experiments/task    — create processing task
+  ├── GET    /api/v1/experiments/list     — list experiments (with time filter)
   ├── GET    /api/v1/tasks/{taskID}      — query async task status
   └── GET    /health                     — health check (no auth)
 
@@ -140,18 +141,3 @@ TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/main_db?search_path=lida
 - **MinIO** (S3-compatible) — raw file storage
 - **sqlc** — type-safe database queries
 - **Goose** — database migrations
-
-## Database management
-
-### Adminer
-
-Для управления PostgreSQL через браузер доступен Adminer:
-
-**URL:** `https://localhost/adminer/`
-
-**Параметры подключения:**
-- **Система:** PostgreSQL
-- **Сервер:** `postgres`
-- **Пользователь:** `user` (или `lidar_user` / `identity_user`)
-- **Пароль:** `pass`
-- **База данных:** `main_db`

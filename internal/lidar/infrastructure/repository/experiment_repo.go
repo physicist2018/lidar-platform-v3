@@ -187,3 +187,21 @@ func fromNullTime(nt sql.NullTime) *time.Time {
 	}
 	return &nt.Time
 }
+
+// FindByTimeRange returns non-deleted experiments within [startTime, endTime].
+func (r *PostgresExperimentRepository) FindByTimeRange(ctx context.Context, startTime, endTime time.Time, limit, offset int) ([]domain.Experiment, error) {
+	rows, err := r.q.ListExperimentsByTimeRange(ctx, db.ListExperimentsByTimeRangeParams{
+		ExperimentStart: startTime,
+		ExperimentEnd:   endTime,
+		Limit:           int32(limit),
+		Offset:          int32(offset),
+	})
+	if err != nil {
+		return nil, err
+	}
+	experiments := make([]domain.Experiment, len(rows))
+	for i, row := range rows {
+		experiments[i] = *mapExperiment(row)
+	}
+	return experiments, nil
+}

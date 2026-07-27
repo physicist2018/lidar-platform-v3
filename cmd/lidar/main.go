@@ -90,12 +90,13 @@ func main() {
 	// ---------------------------------------------------------------
 	createExpUC := application.NewCreateExperimentUseCase(fileStorage, storageObjRepo, experimentRepo, msgQueue, taskStatusRepo)
 	createTaskUC := application.NewCreateTaskUseCase(msgQueue, taskStatusRepo)
+	listExpUC := application.NewListExperimentsUseCase(experimentRepo)
 	getTaskStatusUC := application.NewGetTaskStatusUseCase(taskStatusRepo)
 
 	// ---------------------------------------------------------------
 	// 6. HTTP server
 	// ---------------------------------------------------------------
-	expHandler := server.NewExperimentHandler(createExpUC)
+	expHandler := server.NewExperimentHandler(createExpUC, listExpUC)
 	taskHandler := server.NewTaskHandler(createTaskUC, getTaskStatusUC)
 	router := server.NewRouter(expHandler, taskHandler, cfg.JWTSecret)
 
