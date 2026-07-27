@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -66,25 +67,11 @@ func (m *mockTaskStatusRepoForCreate) FindAll(_ context.Context) ([]domain.TaskR
 // Tests
 // ---------------------------------------------------------------------------
 
-func TestCreateTask_EmptyProfileID(t *testing.T) {
-	uc := NewCreateTaskUseCase(nil, nil)
-
-	resp, err := uc.Execute(context.Background(), &TaskRequest{
-		ProfileID: []string{},
-		TaskType:  "gliding",
-	})
-
-	assert.Nil(t, resp)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "profile_id must not be empty")
-}
-
 func TestCreateTask_EmptyTaskType(t *testing.T) {
 	uc := NewCreateTaskUseCase(nil, nil)
 
 	resp, err := uc.Execute(context.Background(), &TaskRequest{
-		ProfileID: []string{"profile-1"},
-		TaskType:  "",
+		TaskType: "",
 	})
 
 	assert.Nil(t, resp)
@@ -114,10 +101,11 @@ func TestCreateTask_Success(t *testing.T) {
 		},
 	}
 
+	payload := json.RawMessage(`{"profile_ids":["p1","p2"]}`)
 	uc := NewCreateTaskUseCase(queue, repo)
 	resp, err := uc.Execute(context.Background(), &TaskRequest{
-		ProfileID: []string{"profile-1", "profile-2"},
-		TaskType:  "gliding",
+		TaskType: "gliding",
+		Payload:  payload,
 	})
 
 	require.NoError(t, err)
@@ -131,11 +119,13 @@ func TestCreateTask_Success(t *testing.T) {
 	assert.Equal(t, string(ports.SubjectProcessExperiment), createdRecord.Subject)
 	assert.Equal(t, domain.TaskPending, createdRecord.Status)
 	assert.Nil(t, createdRecord.ExperimentID)
-	assert.Contains(t, string(createdRecord.TaskParams), "profile-1")
+	assert.Contains(t, string(createdRecord.TaskParams), "gliding")
+	assert.Contains(t, string(createdRecord.TaskParams), "p1")
 
 	// Verify message was published to NATS
 	assert.Equal(t, ports.SubjectProcessExperiment, publishedSubject)
 	assert.Equal(t, resp.TaskID, publishedDedupID)
 	assert.Contains(t, string(publishedData), resp.TaskID)
 	assert.Contains(t, string(publishedData), "gliding")
+	assert.Contains(t, string(publishedData), "p1")
 }

@@ -15,9 +15,8 @@ import (
 
 // TaskRequest is the JSON body for creating a processing task.
 type TaskRequest struct {
-	ProfileID []string        `json:"profile_id"`
-	TaskType  string          `json:"task_type"`
-	Payload   json.RawMessage `json:"payload"`
+	TaskType string          `json:"task_type"`
+	Payload  json.RawMessage `json:"payload"`
 }
 
 // TaskResponse is returned on successful task creation.
@@ -45,9 +44,6 @@ func NewCreateTaskUseCase(
 
 // Execute validates the request and publishes the task to NATS.
 func (uc *CreateTaskUseCase) Execute(ctx context.Context, req *TaskRequest) (*TaskResponse, error) {
-	if len(req.ProfileID) == 0 {
-		return nil, fmt.Errorf("profile_id must not be empty")
-	}
 	if req.TaskType == "" {
 		return nil, fmt.Errorf("task_type must not be empty")
 	}
@@ -57,7 +53,6 @@ func (uc *CreateTaskUseCase) Execute(ctx context.Context, req *TaskRequest) (*Ta
 	// Build the message body: original request + task_id.
 	msg := map[string]any{
 		"task_id":    taskID,
-		"profile_id": req.ProfileID,
 		"task_type":  req.TaskType,
 		"payload":    req.Payload,
 		"created_at": time.Now().UTC().Format(time.RFC3339),
@@ -70,12 +65,12 @@ func (uc *CreateTaskUseCase) Execute(ctx context.Context, req *TaskRequest) (*Ta
 
 	taskUUID := uuid.MustParse(taskID)
 
-	// Create task status record.
-	taskParams, _ := json.Marshal(map[string]any{
-		"profile_ids": req.ProfileID,
-		"task_type":   req.TaskType,
-		"payload":     req.Payload,
-	})
+	// Create task status record with params from the request.
+	params := map[string]any{"task_type": req.TaskType}
+	if req.Payload != nil {
+		params["payload"] = req.Payload
+	}
+	taskParams, _ := json.Marshal(params)
 	taskRecord := domain.NewTaskRecord(
 		taskUUID,
 		string(ports.SubjectProcessExperiment),

@@ -59,33 +59,11 @@ func TestHandleCreateTask_InvalidJSON(t *testing.T) {
 	assert.Equal(t, "invalid JSON body", resp["error"])
 }
 
-func TestHandleCreateTask_EmptyProfileID(t *testing.T) {
-	createTaskUC := application.NewCreateTaskUseCase(nil, nil)
-
-	body := mustMarshal(t, map[string]any{
-		"profile_id": []string{},
-		"task_type":  "gliding",
-	})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/experiments/task", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	handler := newTaskHandlerWithMocks(createTaskUC, nil)
-	handler.HandleCreateTask(w, req)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	var resp map[string]string
-	json.NewDecoder(w.Body).Decode(&resp)
-	assert.Contains(t, resp["error"], "profile_id must not be empty")
-}
-
 func TestHandleCreateTask_EmptyTaskType(t *testing.T) {
 	createTaskUC := application.NewCreateTaskUseCase(nil, nil)
 
 	body := mustMarshal(t, map[string]any{
-		"profile_id": []string{"some-profile-id"},
-		"task_type":  "",
+		"task_type": "",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/experiments/task", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
