@@ -22,7 +22,6 @@ type TaskRecord struct {
 	ID           uuid.UUID
 	Subject      string
 	Status       TaskStatus
-	ExperimentID *uuid.UUID // nil for profile-level tasks
 	TaskParams   json.RawMessage
 	ErrorMessage string
 	CreatedAt    time.Time
@@ -35,17 +34,15 @@ type TaskRecord struct {
 func NewTaskRecord(
 	id uuid.UUID,
 	subject string,
-	experimentID *uuid.UUID,
 	taskParams json.RawMessage,
 ) TaskRecord {
 	now := time.Now()
 	return TaskRecord{
-		ID:           id,
-		Subject:      subject,
-		Status:       TaskPending,
-		ExperimentID: experimentID,
-		TaskParams:   taskParams,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:         id,
+		Subject:    subject,
+		Status:     TaskPending,
+		TaskParams: taskParams,
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 }

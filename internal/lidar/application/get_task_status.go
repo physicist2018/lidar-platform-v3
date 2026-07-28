@@ -17,7 +17,6 @@ type GetTaskStatusResponse struct {
 	ID           uuid.UUID       `json:"id"`
 	Subject      string          `json:"subject"`
 	Status       string          `json:"status"`
-	ExperimentID *uuid.UUID      `json:"experiment_id"`
 	TaskParams   json.RawMessage `json:"task_params"`
 	ErrorMessage string          `json:"error_message"`
 	CreatedAt    time.Time       `json:"created_at"`
@@ -51,7 +50,6 @@ func mapTaskStatusResponse(record *domain.TaskRecord) *GetTaskStatusResponse {
 		ID:           record.ID,
 		Subject:      record.Subject,
 		Status:       string(record.Status),
-		ExperimentID: record.ExperimentID,
 		TaskParams:   record.TaskParams,
 		ErrorMessage: record.ErrorMessage,
 		CreatedAt:    record.CreatedAt,

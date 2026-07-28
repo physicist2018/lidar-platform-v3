@@ -99,7 +99,7 @@ docs/
 
 ## Tests
 
-Проект содержит **65 тестов**, покрывающих ключевые компоненты.
+Проект содержит **62 теста**, покрывающих ключевые компоненты.
 
 ### Как запустить
 
@@ -125,13 +125,13 @@ TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/main_db?search_path=lida
 | Файл | Тестов | Что тестирует |
 |------|--------|---------------|
 | `server/auth_test.go` | 11 | JWT middleware: валидный токен → 200 + user_id; отсутствует Authorization → 401; пустой Bearer → 401; неверный формат → 401; невалидный токен → 401; неверный секрет → 401; истекший токен → 401; пустой secret fallback; UserIDFromContext; extractBearerToken (6 кейсов) |
-| `server/task_handler_test.go` | 7 | HandleCreateTask: invalid JSON → 400; пустой ProfileID → 400; пустой TaskType → 400. HandleGetTaskStatus: успех → 200 + статус; невалидный UUID → 400; не найдено → 404; отсутствует taskID → 400 |
+| `server/task_handler_test.go` | 8 | HandleCreateTask: invalid JSON → 400; пустой Subject → 400; пустой TaskType → 400. HandleGetTaskStatus: успех → 200 + статус; невалидный UUID → 400; не найдено → 404; отсутствует taskID → 400 |
 | `server/router_test.go` | 4 | /health без auth → 200; /api/v1/* без auth → 401 (3 endpoints); с валидным токеном → 501 (auth прошёл); с истекшим токеном → 401 |
 | `server/experiment_handler_test.go` | 9 | HandleCreateExperiment: успех со всеми полями, успех без опциональных файлов, отсутствует title → 400, отсутствует zenith_angle → 400, неверный zenith_angle → 400, отсутствует latitude → 400, отсутствует longitude → 400, отсутствует experiment_files → 400, use case error → 500 |
-| `domain/domain_test.go` | 17 | TaskRecord: создание с experiment_id, без experiment_id, nil params. Experiment: конструктор по умолчанию, с опциями. TimeRange: валидный, inverted, равные. GeoLocation: валидные координаты, неверная широта, неверная долгота. SoftDelete/Restore эксперимента. LicelFile: базовый, с filename, soft delete. LicelProfile: валидный, несовпадение длины данных, PointAt. AtmosphereProfile: валидный, несовпадение длин. ObjectPath: Key/String, пустой bucket/path. StorageObject: конструктор с опциями |
-| `application/create_task_test.go` | 3 | CreateTaskUseCase: пустой ProfileID → error, пустой TaskType → error, успех (создание TaskRecord + публикация в NATS) |
+| `domain/domain_test.go` | 16 | TaskRecord: создание, nil params. Experiment: конструктор по умолчанию, с опциями. TimeRange: валидный, inverted, равные. GeoLocation: валидные координаты, неверная широта, неверная долгота. SoftDelete/Restore эксперимента. LicelFile: базовый, с filename, soft delete. LicelProfile: валидный, несовпадение длины данных, PointAt. AtmosphereProfile: валидный, несовпадение длин. ObjectPath: Key/String, пустой bucket/path. StorageObject: конструктор с опциями |
+| `application/create_task_test.go` | 4 | CreateTaskUseCase: пустой Subject → error, пустой TaskType → error, успех (создание TaskRecord + публикация в NATS) |
 | `application/get_task_status_test.go` | 3 | GetTaskStatusUseCase: найдено → response, не найдено → error, with params (failed + error message + JSON params) |
-| `repository/task_status_repo_test.go` | 8 | TaskStatusRepository (реальный PostgreSQL через testcontainers): Create + FindByID; Create с experiment_id; дубликат ID → error; UpdateStatus (processing → completed + started_at/finished_at); UpdateStatus failed + error_message; FindByID not found → ErrObjectNotFound; FindByExperimentID (2 tasks); FindAll |
+| `repository/task_status_repo_test.go` | 7 | TaskStatusRepository (реальный PostgreSQL через testcontainers): Create + FindByID; Create с experiment_id; дубликат ID → error; UpdateStatus (processing → completed + started_at/finished_at); UpdateStatus failed + error_message; FindByID not found → ErrObjectNotFound; FindAll |
 
 ## Dependencies
 

@@ -1,9 +1,9 @@
 -- Task Statuses
 -- name: CreateTaskStatus :one
 INSERT INTO lidar.task_statuses (
-    id, subject, status, experiment_id, task_params
+    id, subject, status, task_params
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4
 )
 RETURNING *;
 
@@ -24,9 +24,6 @@ WHERE id = $1;
 
 -- name: GetTaskStatusByID :one
 SELECT * FROM lidar.task_statuses WHERE id = $1;
-
--- name: GetTaskStatusesByExperimentID :many
-SELECT * FROM lidar.task_statuses WHERE experiment_id = $1 ORDER BY created_at DESC;
 
 -- name: ListTaskStatuses :many
 SELECT * FROM lidar.task_statuses ORDER BY created_at DESC;

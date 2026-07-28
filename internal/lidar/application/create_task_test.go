@@ -55,10 +55,6 @@ func (m *mockTaskStatusRepoForCreate) FindByID(_ context.Context, _ uuid.UUID) (
 	panic("mockTaskStatusRepo.FindByID not implemented")
 }
 
-func (m *mockTaskStatusRepoForCreate) FindByExperimentID(_ context.Context, _ uuid.UUID) ([]domain.TaskRecord, error) {
-	panic("mockTaskStatusRepo.FindByExperimentID not implemented")
-}
-
 func (m *mockTaskStatusRepoForCreate) FindAll(_ context.Context) ([]domain.TaskRecord, error) {
 	panic("mockTaskStatusRepo.FindAll not implemented")
 }
@@ -67,10 +63,24 @@ func (m *mockTaskStatusRepoForCreate) FindAll(_ context.Context) ([]domain.TaskR
 // Tests
 // ---------------------------------------------------------------------------
 
+func TestCreateTask_EmptySubject(t *testing.T) {
+	uc := NewCreateTaskUseCase(nil, nil)
+
+	resp, err := uc.Execute(context.Background(), &TaskRequest{
+		Subject:  "",
+		TaskType: "gliding",
+	})
+
+	assert.Nil(t, resp)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "subject must not be empty")
+}
+
 func TestCreateTask_EmptyTaskType(t *testing.T) {
 	uc := NewCreateTaskUseCase(nil, nil)
 
 	resp, err := uc.Execute(context.Background(), &TaskRequest{
+		Subject:  "lidar.task.test",
 		TaskType: "",
 	})
 
@@ -104,6 +114,7 @@ func TestCreateTask_Success(t *testing.T) {
 	payload := json.RawMessage(`{"profile_ids":["p1","p2"]}`)
 	uc := NewCreateTaskUseCase(queue, repo)
 	resp, err := uc.Execute(context.Background(), &TaskRequest{
+		Subject:  string(ports.SubjectProcessExperiment),
 		TaskType: "gliding",
 		Payload:  payload,
 	})
@@ -118,7 +129,6 @@ func TestCreateTask_Success(t *testing.T) {
 	require.NotNil(t, createdRecord)
 	assert.Equal(t, string(ports.SubjectProcessExperiment), createdRecord.Subject)
 	assert.Equal(t, domain.TaskPending, createdRecord.Status)
-	assert.Nil(t, createdRecord.ExperimentID)
 	assert.Contains(t, string(createdRecord.TaskParams), "gliding")
 	assert.Contains(t, string(createdRecord.TaskParams), "p1")
 

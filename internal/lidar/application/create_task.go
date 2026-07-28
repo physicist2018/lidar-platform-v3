@@ -15,7 +15,9 @@ import (
 
 // TaskRequest is the JSON body for creating a processing task.
 type TaskRequest struct {
+	Subject  string          `json:"subject"`
 	TaskType string          `json:"task_type"`
+	TaskID   string          `json:"task_id,omitempty"` // optional; auto-generated if empty
 	Payload  json.RawMessage `json:"payload"`
 }
 
@@ -44,15 +46,27 @@ func NewCreateTaskUseCase(
 
 // Execute validates the request and publishes the task to NATS.
 func (uc *CreateTaskUseCase) Execute(ctx context.Context, req *TaskRequest) (*TaskResponse, error) {
+	if req.Subject == "" {
+		return nil, fmt.Errorf("subject must not be empty")
+	}
 	if req.TaskType == "" {
 		return nil, fmt.Errorf("task_type must not be empty")
 	}
 
-	taskID := uuid.New().String()
+	taskID := req.TaskID
+	if taskID == "" {
+		taskID = uuid.New().String()
+	}
+
+	taskUUID, err := uuid.Parse(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid task_id: %w", err)
+	}
 
 	// Build the message body: original request + task_id.
 	msg := map[string]any{
 		"task_id":    taskID,
+		"subject":    req.Subject,
 		"task_type":  req.TaskType,
 		"payload":    req.Payload,
 		"created_at": time.Now().UTC().Format(time.RFC3339),
@@ -63,18 +77,15 @@ func (uc *CreateTaskUseCase) Execute(ctx context.Context, req *TaskRequest) (*Ta
 		return nil, fmt.Errorf("marshal task: %w", err)
 	}
 
-	taskUUID := uuid.MustParse(taskID)
-
-	// Create task status record with params from the request.
-	params := map[string]any{"task_type": req.TaskType}
+	// Create task status record.
+	params := map[string]any{"subject": req.Subject, "task_type": req.TaskType}
 	if req.Payload != nil {
 		params["payload"] = req.Payload
 	}
 	taskParams, _ := json.Marshal(params)
 	taskRecord := domain.NewTaskRecord(
 		taskUUID,
-		string(ports.SubjectProcessExperiment),
-		nil,
+		req.Subject,
 		taskParams,
 	)
 	if err := uc.taskStatusRepo.Create(ctx, &taskRecord); err != nil {
@@ -82,7 +93,8 @@ func (uc *CreateTaskUseCase) Execute(ctx context.Context, req *TaskRequest) (*Ta
 	}
 
 	// Publish with the task_id as dedup ID to prevent duplicates.
-	if err := uc.queue.Publish(ctx, ports.SubjectProcessExperiment, data, taskID); err != nil {
+	subject := ports.Subject(req.Subject)
+	if err := uc.queue.Publish(ctx, subject, data, taskID); err != nil {
 		return nil, fmt.Errorf("publish task: %w", err)
 	}
 

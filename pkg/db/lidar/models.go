@@ -103,7 +103,6 @@ type LidarTaskStatus struct {
 	ID           uuid.UUID       `json:"id"`
 	Subject      string          `json:"subject"`
 	Status       string          `json:"status"`
-	ExperimentID uuid.NullUUID   `json:"experiment_id"`
 	TaskParams   json.RawMessage `json:"task_params"`
 	ErrorMessage sql.NullString  `json:"error_message"`
 	CreatedAt    time.Time       `json:"created_at"`

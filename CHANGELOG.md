@@ -3,6 +3,34 @@
 ## [Unreleased]
 
 ### Added
+- **`subject` in `POST /api/v1/experiments/task`** — subject is now an explicit
+  required field `"subject"` in the JSON request. Previously it was hardcoded to
+  `lidar.task.process_experiment`, now any subject can be specified.
+- **`task_id` in `POST /api/v1/experiments/task`** — optional field; auto-generated
+  if empty. Allows explicitly setting the task ID (e.g. `expID` for a parse task).
+- **Universal task creation** — `CreateExperimentUseCase` now creates tasks through
+  `CreateTaskUseCase` instead of directly. Removed duplicate `queue` and
+  `taskStatusRepo` dependencies from `CreateExperimentUseCase`.
+
+### Removed
+- **`experiment_id` from `lidar.task_statuses`** — column removed (migration
+  `005_remove_experiment_id_from_task_statuses.sql`). Experiment association can
+  be passed via `task_params` if needed.
+- **`FindByExperimentID` from `TaskStatusRepository`** — method removed since it
+  was unused in production code.
+- **`ExperimentID` field from `GetTaskStatusResponse`** — no longer returned in API.
+
+### Changed
+- **`CreateTaskUseCase`** — now a universal use case: `subject` and optional
+  `task_id` are passed explicitly in `TaskRequest`.
+- **`NewCreateExperimentUseCase`** — signature changed: accepts `*CreateTaskUseCase`
+  instead of `queue, taskStatusRepo`.
+- **`NewTaskRecord`** — signature changed: `experimentID` parameter removed,
+  three parameters remain: `id, subject, taskParams`.
+
+## [Unreleased] (previous)
+
+### Added
 - **GET /api/v1/experiments/list** — новый эндпоинт для получения списка экспериментов
   с фильтрацией по временному диапазону.
   - `GET /api/v1/experiments/list` — все эксперименты

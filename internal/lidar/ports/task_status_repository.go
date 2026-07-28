@@ -20,9 +20,6 @@ type TaskStatusRepository interface {
 	// FindByID looks up a task record by ID.
 	FindByID(ctx context.Context, id uuid.UUID) (*domain.TaskRecord, error)
 
-	// FindByExperimentID returns all tasks for a given experiment, newest first.
-	FindByExperimentID(ctx context.Context, experimentID uuid.UUID) ([]domain.TaskRecord, error)
-
 	// FindAll returns all task records, newest first.
 	FindAll(ctx context.Context) ([]domain.TaskRecord, error)
 }

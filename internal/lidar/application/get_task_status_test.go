@@ -32,10 +32,6 @@ func (m *mockTaskStatusRepoForGet) FindByID(ctx context.Context, id uuid.UUID) (
 	return m.findByIDFunc(ctx, id)
 }
 
-func (m *mockTaskStatusRepoForGet) FindByExperimentID(_ context.Context, _ uuid.UUID) ([]domain.TaskRecord, error) {
-	panic("mockTaskStatusRepo.FindByExperimentID not implemented")
-}
-
 func (m *mockTaskStatusRepoForGet) FindAll(_ context.Context) ([]domain.TaskRecord, error) {
 	panic("mockTaskStatusRepo.FindAll not implemented")
 }
@@ -43,18 +39,16 @@ func (m *mockTaskStatusRepoForGet) FindAll(_ context.Context) ([]domain.TaskReco
 func TestGetTaskStatus_Found(t *testing.T) {
 	taskID := uuid.New()
 	now := time.Now()
-	expID := uuid.New()
 
 	repo := &mockTaskStatusRepoForGet{
 		findByIDFunc: func(_ context.Context, id uuid.UUID) (*domain.TaskRecord, error) {
 			assert.Equal(t, taskID, id)
 			return &domain.TaskRecord{
-				ID:           taskID,
-				Subject:      "lidar.task.parse_experiment",
-				Status:       domain.TaskCompleted,
-				ExperimentID: &expID,
-				CreatedAt:    now,
-				UpdatedAt:    now,
+				ID:        taskID,
+				Subject:   "lidar.task.parse_experiment",
+				Status:    domain.TaskCompleted,
+				CreatedAt: now,
+				UpdatedAt: now,
 			}, nil
 		},
 	}
@@ -68,7 +62,6 @@ func TestGetTaskStatus_Found(t *testing.T) {
 	assert.Equal(t, taskID, resp.ID)
 	assert.Equal(t, "lidar.task.parse_experiment", resp.Subject)
 	assert.Equal(t, "completed", resp.Status)
-	assert.Equal(t, &expID, resp.ExperimentID)
 }
 
 func TestGetTaskStatus_NotFound(t *testing.T) {

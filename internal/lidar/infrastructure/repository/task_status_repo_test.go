@@ -107,7 +107,6 @@ func applyMigrations(db *sql.DB) error {
 			id UUID PRIMARY KEY,
 			subject TEXT NOT NULL,
 			status TEXT NOT NULL DEFAULT 'pending',
-			experiment_id UUID REFERENCES lidar.experiments(id) ON DELETE CASCADE,
 			task_params JSONB NOT NULL DEFAULT '{}',
 			error_message TEXT,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -115,7 +114,6 @@ func applyMigrations(db *sql.DB) error {
 			started_at TIMESTAMPTZ,
 			finished_at TIMESTAMPTZ
 		);`,
-		`CREATE INDEX IF NOT EXISTS idx_task_statuses_experiment_id ON lidar.task_statuses(experiment_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_task_statuses_status ON lidar.task_statuses(status);`,
 	}
 
@@ -133,7 +131,7 @@ func TestTaskStatusRepo_CreateAndFindByID(t *testing.T) {
 	}
 
 	repo := NewPostgresTaskStatusRepository(testDB)
-	record := domain.NewTaskRecord(uuid.New(), "lidar.task.test", nil, nil)
+	record := domain.NewTaskRecord(uuid.New(), "lidar.task.test", nil)
 
 	err := repo.Create(context.Background(), &record)
 	require.NoError(t, err)
@@ -145,7 +143,6 @@ func TestTaskStatusRepo_CreateAndFindByID(t *testing.T) {
 	assert.Equal(t, record.ID, found.ID)
 	assert.Equal(t, record.Subject, found.Subject)
 	assert.Equal(t, domain.TaskPending, found.Status)
-	assert.Nil(t, found.ExperimentID)
 	assert.NotZero(t, found.CreatedAt)
 	assert.NotZero(t, found.UpdatedAt)
 }
@@ -155,16 +152,16 @@ func TestTaskStatusRepo_CreateWithExperimentID(t *testing.T) {
 		t.Skip("no test database available")
 	}
 
-	expID := createTestExperiment(t, testDB)
+	_ = createTestExperiment(t, testDB)
 	repo := NewPostgresTaskStatusRepository(testDB)
-	record := domain.NewTaskRecord(uuid.New(), "lidar.task.parse_experiment", &expID, nil)
+	record := domain.NewTaskRecord(uuid.New(), "lidar.task.parse_experiment", nil)
 
 	err := repo.Create(context.Background(), &record)
 	require.NoError(t, err)
 
 	found, err := repo.FindByID(context.Background(), record.ID)
 	require.NoError(t, err)
-	assert.Equal(t, expID, *found.ExperimentID)
+	assert.Equal(t, record.ID, found.ID)
 }
 
 func TestTaskStatusRepo_CreateDuplicateID(t *testing.T) {
@@ -174,8 +171,8 @@ func TestTaskStatusRepo_CreateDuplicateID(t *testing.T) {
 
 	repo := NewPostgresTaskStatusRepository(testDB)
 	id := uuid.New()
-	rec1 := domain.NewTaskRecord(id, "lidar.task.test", nil, nil)
-	rec2 := domain.NewTaskRecord(id, "lidar.task.test2", nil, nil)
+	rec1 := domain.NewTaskRecord(id, "lidar.task.test", nil)
+	rec2 := domain.NewTaskRecord(id, "lidar.task.test2", nil)
 
 	require.NoError(t, repo.Create(context.Background(), &rec1))
 	assert.Error(t, repo.Create(context.Background(), &rec2))
@@ -187,7 +184,7 @@ func TestTaskStatusRepo_UpdateStatus(t *testing.T) {
 	}
 
 	repo := NewPostgresTaskStatusRepository(testDB)
-	record := domain.NewTaskRecord(uuid.New(), "lidar.task.test", nil, nil)
+	record := domain.NewTaskRecord(uuid.New(), "lidar.task.test", nil)
 	require.NoError(t, repo.Create(context.Background(), &record))
 
 	err := repo.UpdateStatus(context.Background(), record.ID, domain.TaskProcessing, "")
@@ -211,7 +208,7 @@ func TestTaskStatusRepo_UpdateStatusFailed(t *testing.T) {
 	}
 
 	repo := NewPostgresTaskStatusRepository(testDB)
-	record := domain.NewTaskRecord(uuid.New(), "lidar.task.test", nil, nil)
+	record := domain.NewTaskRecord(uuid.New(), "lidar.task.test", nil)
 	require.NoError(t, repo.Create(context.Background(), &record))
 
 	err := repo.UpdateStatus(context.Background(), record.ID, domain.TaskFailed, "something went wrong")
@@ -233,36 +230,15 @@ func TestTaskStatusRepo_FindByID_NotFound(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrObjectNotFound)
 }
 
-func TestTaskStatusRepo_FindByExperimentID(t *testing.T) {
-	if testDB == nil {
-		t.Skip("no test database available")
-	}
-
-	expID := createTestExperiment(t, testDB)
-	repo := NewPostgresTaskStatusRepository(testDB)
-
-	task1 := domain.NewTaskRecord(uuid.New(), "lidar.task.first", &expID, nil)
-	task2 := domain.NewTaskRecord(uuid.New(), "lidar.task.second", &expID, nil)
-
-	require.NoError(t, repo.Create(context.Background(), &task1))
-	require.NoError(t, repo.Create(context.Background(), &task2))
-
-	tasks, err := repo.FindByExperimentID(context.Background(), expID)
-	require.NoError(t, err)
-	assert.Len(t, tasks, 2)
-}
-
 func TestTaskStatusRepo_FindAll(t *testing.T) {
 	if testDB == nil {
 		t.Skip("no test database available")
 	}
 
 	repo := NewPostgresTaskStatusRepository(testDB)
-	expID1 := createTestExperiment(t, testDB)
-	expID2 := createTestExperiment(t, testDB)
 
-	rec1 := domain.NewTaskRecord(uuid.New(), "lidar.task.a", &expID1, nil)
-	rec2 := domain.NewTaskRecord(uuid.New(), "lidar.task.b", &expID2, nil)
+	rec1 := domain.NewTaskRecord(uuid.New(), "lidar.task.a", nil)
+	rec2 := domain.NewTaskRecord(uuid.New(), "lidar.task.b", nil)
 
 	require.NoError(t, repo.Create(context.Background(), &rec1))
 	require.NoError(t, repo.Create(context.Background(), &rec2))

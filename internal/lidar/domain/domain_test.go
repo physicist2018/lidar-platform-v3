@@ -12,14 +12,12 @@ import (
 func TestNewTaskRecord_Pending(t *testing.T) {
 	id := uuid.New()
 	subject := "lidar.task.test"
-	expID := uuid.New()
 
-	rec := NewTaskRecord(id, subject, &expID, nil)
+	rec := NewTaskRecord(id, subject, nil)
 
 	assert.Equal(t, id, rec.ID)
 	assert.Equal(t, subject, rec.Subject)
 	assert.Equal(t, TaskPending, rec.Status)
-	assert.Equal(t, &expID, rec.ExperimentID)
 	assert.NotZero(t, rec.CreatedAt)
 	assert.NotZero(t, rec.UpdatedAt)
 	assert.Nil(t, rec.StartedAt)
@@ -27,15 +25,8 @@ func TestNewTaskRecord_Pending(t *testing.T) {
 	assert.Empty(t, rec.ErrorMessage)
 }
 
-func TestNewTaskRecord_NilExperimentID(t *testing.T) {
-	id := uuid.New()
-	rec := NewTaskRecord(id, "lidar.task.profile", nil, nil)
-	assert.Equal(t, id, rec.ID)
-	assert.Nil(t, rec.ExperimentID)
-}
-
 func TestNewTaskRecord_NilParams(t *testing.T) {
-	rec := NewTaskRecord(uuid.New(), "lidar.task.test", nil, nil)
+	rec := NewTaskRecord(uuid.New(), "lidar.task.test", nil)
 	assert.Nil(t, rec.TaskParams)
 }
 

@@ -15,19 +15,18 @@ import (
 
 const createTaskStatus = `-- name: CreateTaskStatus :one
 INSERT INTO lidar.task_statuses (
-    id, subject, status, experiment_id, task_params
+    id, subject, status, task_params
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4
 )
-RETURNING id, subject, status, experiment_id, task_params, error_message, created_at, updated_at, started_at, finished_at
+RETURNING id, subject, status, task_params, error_message, created_at, updated_at, started_at, finished_at
 `
 
 type CreateTaskStatusParams struct {
-	ID           uuid.UUID       `json:"id"`
-	Subject      string          `json:"subject"`
-	Status       string          `json:"status"`
-	ExperimentID uuid.NullUUID   `json:"experiment_id"`
-	TaskParams   json.RawMessage `json:"task_params"`
+	ID         uuid.UUID       `json:"id"`
+	Subject    string          `json:"subject"`
+	Status     string          `json:"status"`
+	TaskParams json.RawMessage `json:"task_params"`
 }
 
 // Task Statuses
@@ -36,7 +35,6 @@ func (q *Queries) CreateTaskStatus(ctx context.Context, arg CreateTaskStatusPara
 		arg.ID,
 		arg.Subject,
 		arg.Status,
-		arg.ExperimentID,
 		arg.TaskParams,
 	)
 	var i LidarTaskStatus
@@ -44,7 +42,6 @@ func (q *Queries) CreateTaskStatus(ctx context.Context, arg CreateTaskStatusPara
 		&i.ID,
 		&i.Subject,
 		&i.Status,
-		&i.ExperimentID,
 		&i.TaskParams,
 		&i.ErrorMessage,
 		&i.CreatedAt,
@@ -56,7 +53,7 @@ func (q *Queries) CreateTaskStatus(ctx context.Context, arg CreateTaskStatusPara
 }
 
 const getTaskStatusByID = `-- name: GetTaskStatusByID :one
-SELECT id, subject, status, experiment_id, task_params, error_message, created_at, updated_at, started_at, finished_at FROM lidar.task_statuses WHERE id = $1
+SELECT id, subject, status, task_params, error_message, created_at, updated_at, started_at, finished_at FROM lidar.task_statuses WHERE id = $1
 `
 
 func (q *Queries) GetTaskStatusByID(ctx context.Context, id uuid.UUID) (LidarTaskStatus, error) {
@@ -66,7 +63,6 @@ func (q *Queries) GetTaskStatusByID(ctx context.Context, id uuid.UUID) (LidarTas
 		&i.ID,
 		&i.Subject,
 		&i.Status,
-		&i.ExperimentID,
 		&i.TaskParams,
 		&i.ErrorMessage,
 		&i.CreatedAt,
@@ -77,46 +73,8 @@ func (q *Queries) GetTaskStatusByID(ctx context.Context, id uuid.UUID) (LidarTas
 	return i, err
 }
 
-const getTaskStatusesByExperimentID = `-- name: GetTaskStatusesByExperimentID :many
-SELECT id, subject, status, experiment_id, task_params, error_message, created_at, updated_at, started_at, finished_at FROM lidar.task_statuses WHERE experiment_id = $1 ORDER BY created_at DESC
-`
-
-func (q *Queries) GetTaskStatusesByExperimentID(ctx context.Context, experimentID uuid.NullUUID) ([]LidarTaskStatus, error) {
-	rows, err := q.db.QueryContext(ctx, getTaskStatusesByExperimentID, experimentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []LidarTaskStatus
-	for rows.Next() {
-		var i LidarTaskStatus
-		if err := rows.Scan(
-			&i.ID,
-			&i.Subject,
-			&i.Status,
-			&i.ExperimentID,
-			&i.TaskParams,
-			&i.ErrorMessage,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.StartedAt,
-			&i.FinishedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listTaskStatuses = `-- name: ListTaskStatuses :many
-SELECT id, subject, status, experiment_id, task_params, error_message, created_at, updated_at, started_at, finished_at FROM lidar.task_statuses ORDER BY created_at DESC
+SELECT id, subject, status, task_params, error_message, created_at, updated_at, started_at, finished_at FROM lidar.task_statuses ORDER BY created_at DESC
 `
 
 func (q *Queries) ListTaskStatuses(ctx context.Context) ([]LidarTaskStatus, error) {
@@ -132,7 +90,6 @@ func (q *Queries) ListTaskStatuses(ctx context.Context) ([]LidarTaskStatus, erro
 			&i.ID,
 			&i.Subject,
 			&i.Status,
-			&i.ExperimentID,
 			&i.TaskParams,
 			&i.ErrorMessage,
 			&i.CreatedAt,

@@ -63,6 +63,7 @@ func TestHandleCreateTask_EmptyTaskType(t *testing.T) {
 	createTaskUC := application.NewCreateTaskUseCase(nil, nil)
 
 	body := mustMarshal(t, map[string]any{
+		"subject":   "lidar.task.test",
 		"task_type": "",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/experiments/task", bytes.NewReader(body))
@@ -77,6 +78,27 @@ func TestHandleCreateTask_EmptyTaskType(t *testing.T) {
 	var resp map[string]string
 	json.NewDecoder(w.Body).Decode(&resp)
 	assert.Contains(t, resp["error"], "task_type must not be empty")
+}
+
+func TestHandleCreateTask_EmptySubject(t *testing.T) {
+	createTaskUC := application.NewCreateTaskUseCase(nil, nil)
+
+	body := mustMarshal(t, map[string]any{
+		"subject":   "",
+		"task_type": "gliding",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/experiments/task", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler := newTaskHandlerWithMocks(createTaskUC, nil)
+	handler.HandleCreateTask(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var resp map[string]string
+	json.NewDecoder(w.Body).Decode(&resp)
+	assert.Contains(t, resp["error"], "subject must not be empty")
 }
 
 // ---------------------------------------------------------------------------

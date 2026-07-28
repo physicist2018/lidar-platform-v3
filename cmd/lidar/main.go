@@ -88,8 +88,8 @@ func main() {
 	// ---------------------------------------------------------------
 	// 5. Use cases
 	// ---------------------------------------------------------------
-	createExpUC := application.NewCreateExperimentUseCase(fileStorage, storageObjRepo, experimentRepo, msgQueue, taskStatusRepo)
 	createTaskUC := application.NewCreateTaskUseCase(msgQueue, taskStatusRepo)
+	createExpUC := application.NewCreateExperimentUseCase(fileStorage, storageObjRepo, experimentRepo, createTaskUC)
 	listExpUC := application.NewListExperimentsUseCase(experimentRepo)
 	getTaskStatusUC := application.NewGetTaskStatusUseCase(taskStatusRepo)
 

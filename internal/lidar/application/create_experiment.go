@@ -50,11 +50,10 @@ type CreateExperimentResponse struct {
 
 // CreateExperimentUseCase orchestrates file upload and experiment creation.
 type CreateExperimentUseCase struct {
-	storage        ports.FileStorage
-	storageObj     ports.StorageObjectRepository
-	experiment     ports.ExperimentRepository
-	queue          ports.MessageQueue
-	taskStatusRepo ports.TaskStatusRepository
+	storage    ports.FileStorage
+	storageObj ports.StorageObjectRepository
+	experiment ports.ExperimentRepository
+	createTask *CreateTaskUseCase
 }
 
 // NewCreateExperimentUseCase creates a new CreateExperimentUseCase.
@@ -62,15 +61,13 @@ func NewCreateExperimentUseCase(
 	storage ports.FileStorage,
 	storageObj ports.StorageObjectRepository,
 	experiment ports.ExperimentRepository,
-	queue ports.MessageQueue,
-	taskStatusRepo ports.TaskStatusRepository,
+	createTask *CreateTaskUseCase,
 ) *CreateExperimentUseCase {
 	return &CreateExperimentUseCase{
-		storage:        storage,
-		storageObj:     storageObj,
-		experiment:     experiment,
-		queue:          queue,
-		taskStatusRepo: taskStatusRepo,
+		storage:    storage,
+		storageObj: storageObj,
+		experiment: experiment,
+		createTask: createTask,
 	}
 }
 
@@ -125,23 +122,14 @@ func (uc *CreateExperimentUseCase) Execute(ctx context.Context, req *CreateExper
 		return nil, fmt.Errorf("create experiment: %w", err)
 	}
 
-	// 5. Create task status record.
-	if uc.taskStatusRepo != nil {
-		taskRecord := domain.NewTaskRecord(
-			expID,
-			string(ports.SubjectParseExperiment),
-			&expID,
-			nil,
-		)
-		if err := uc.taskStatusRepo.Create(ctx, &taskRecord); err != nil {
-			log.Printf("create task status: %v", err)
-		}
-	}
-
-	// 6. Publish async task.
-	if uc.queue != nil {
-		if err := uc.queue.Publish(ctx, ports.SubjectParseExperiment, []byte(expID.String()), expID.String()); err != nil {
-			log.Printf("publish task: %v", err)
+	// 5. Create async parse task.
+	if uc.createTask != nil {
+		if _, err := uc.createTask.Execute(ctx, &TaskRequest{
+			Subject:  string(ports.SubjectParseExperiment),
+			TaskType: "parse_experiment",
+			TaskID:   expID.String(),
+		}); err != nil {
+			log.Printf("create parse task: %v", err)
 		}
 	}
 

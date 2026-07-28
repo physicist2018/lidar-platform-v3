@@ -29,11 +29,10 @@ func (r *PostgresTaskStatusRepository) Create(ctx context.Context, record *domai
 		taskParams = json.RawMessage("{}")
 	}
 	_, err := r.q.CreateTaskStatus(ctx, db.CreateTaskStatusParams{
-		ID:           record.ID,
-		Subject:      record.Subject,
-		Status:       string(record.Status),
-		ExperimentID: toNullUUID(record.ExperimentID),
-		TaskParams:   taskParams,
+		ID:         record.ID,
+		Subject:    record.Subject,
+		Status:     string(record.Status),
+		TaskParams: taskParams,
 	})
 	return err
 }
@@ -65,18 +64,6 @@ func (r *PostgresTaskStatusRepository) FindByID(ctx context.Context, id uuid.UUI
 }
 
 // FindByExperimentID returns all tasks for a given experiment, newest first.
-func (r *PostgresTaskStatusRepository) FindByExperimentID(
-	ctx context.Context,
-	experimentID uuid.UUID,
-) ([]domain.TaskRecord, error) {
-	rows, err := r.q.GetTaskStatusesByExperimentID(ctx, uuid.NullUUID{UUID: experimentID, Valid: true})
-	if err != nil {
-		return nil, err
-	}
-	return mapTaskStatuses(rows), nil
-}
-
-// FindAll returns all task records, newest first.
 func (r *PostgresTaskStatusRepository) FindAll(ctx context.Context) ([]domain.TaskRecord, error) {
 	rows, err := r.q.ListTaskStatuses(ctx)
 	if err != nil {
@@ -97,9 +84,6 @@ func mapTaskStatus(u db.LidarTaskStatus) *domain.TaskRecord {
 		TaskParams: u.TaskParams,
 		CreatedAt:  u.CreatedAt,
 		UpdatedAt:  u.UpdatedAt,
-	}
-	if u.ExperimentID.Valid {
-		rec.ExperimentID = &u.ExperimentID.UUID
 	}
 	if u.ErrorMessage.Valid {
 		rec.ErrorMessage = u.ErrorMessage.String

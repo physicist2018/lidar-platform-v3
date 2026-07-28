@@ -5,14 +5,14 @@
 Асинхронные задачи проходят через NATS JetStream. Каждая задача имеет запись в таблице `lidar.task_statuses`, где отслеживается её жизненный цикл.
 
 ```
-Клиент → HTTP handler → Use Case → INSERT task_status (pending)
-                                  → Publish NATS (dedup = task ID)
+Клиент → HTTP handler → CreateTaskUseCase → INSERT task_status (pending)
+                                          → Publish NATS (dedup = task ID)
 
-                                  ↓
-                            Worker (NATS consumer)
-                                  → UPDATE task_status → processing
-                                  → выполнение работы
-                                  → UPDATE task_status → completed / failed
+                                          ↓
+                                    Worker (NATS consumer)
+                                          → UPDATE task_status → processing
+                                          → выполнение работы
+                                          → UPDATE task_status → completed / failed
 ```
 
 ## Статусы задач
@@ -31,7 +31,6 @@
 | `id`             | UUID PK      | Идентификатор задачи (совпадает с NATS dedupID)              |
 | `subject`        | TEXT         | NATS subject (напр. `lidar.task.parse_experiment`)           |
 | `status`         | TEXT         | `pending`, `processing`, `completed`, `failed`               |
-| `experiment_id`  | UUID?        | FK на `lidar.experiments`, если задача привязана к эксперименту |
 | `task_params`    | JSONB        | Все параметры расчётов: `profile_ids`, `task_type`, ...      |
 | `error_message`  | TEXT?        | Текст ошибки для `failed`                                    |
 | `created_at`     | TIMESTAMPTZ  | Когда создана запись                                         |
@@ -141,28 +140,21 @@ w.Register(
 )
 ```
 
-### Шаг 4. Опубликовать задачу из use case
+### Шаг 4. Опубликовать задачу через `CreateTaskUseCase`
 
-В `internal/lidar/application/` изменить или создать use case, который:
-
-1. Создаёт `TaskRecord` со статусом `pending`
-2. Публикует сообщение в NATS
+В `internal/lidar/application/` создать use case, который через `CreateTaskUseCase`
+создаёт задачу и публикует её в NATS:
 
 ```go
-// 1. Создать запись в task_statuses
-taskRecord := domain.NewTaskRecord(
-    taskUUID,                            // id задачи (uuid)
-    string(ports.SubjectNewTask),        // subject
-    &experimentID,                       // experiment_id (nil, если задача не на эксперимент)
-    taskParams,                          // json.RawMessage с параметрами расчётов
-)
-if err := uc.taskStatusRepo.Create(ctx, &taskRecord); err != nil {
-    log.Printf("create task status: %v", err)
-}
-
-// 2. Опубликовать в NATS (dedupID = taskUUID, чтобы не было дубликатов)
-if err := uc.queue.Publish(ctx, ports.SubjectNewTask, data, taskUUID.String()); err != nil {
-    return nil, fmt.Errorf("publish task: %w", err)
+// Создать задачу через универсальный use case
+_, err := uc.createTask.Execute(ctx, &TaskRequest{
+    Subject:  string(ports.SubjectNewTask),   // NATS subject
+    TaskType: "new_task",                     // тип задачи (для task_params)
+    TaskID:   taskUUID.String(),              // опционально; если не указать — сгенерируется
+    Payload:  taskParams,                     // json.RawMessage с параметрами
+})
+if err != nil {
+    return nil, fmt.Errorf("create task: %w", err)
 }
 ```
 
@@ -179,19 +171,23 @@ taskParams, _ := json.Marshal(map[string]any{
 })
 ```
 
-Репозиторий сам сконвертит `nil` в `{}`, поэтому можно передавать пустые параметры.
+`CreateTaskUseCase` сам:
+1. Валидирует `subject` и `task_type`
+2. Генерирует `taskID`, если не указан
+3. Создаёт `TaskRecord` в БД со статусом `pending`
+4. Публикует сообщение в NATS с `dedupID = taskID`
 
-### Шаг 5. Прокинуть `TaskStatusRepository` через DI
+### Шаг 5. Прокинуть `CreateTaskUseCase` через DI
 
 В `cmd/lidar/main.go`:
 
 ```go
-taskStatusRepo := repository.NewPostgresTaskStatusRepository(dbConn)
-
-createExpUC := application.NewCreateExperimentUseCase(
-    fileStorage, storageObjRepo, experimentRepo, msgQueue, taskStatusRepo,
-)
 createTaskUC := application.NewCreateTaskUseCase(msgQueue, taskStatusRepo)
+createExpUC := application.NewCreateExperimentUseCase(
+    fileStorage, storageObjRepo, experimentRepo, createTaskUC,
+)
+// Новый use case, которому нужно создавать задачи:
+newUseCase := application.NewNewUseCase(createTaskUC, ...)
 ```
 
 В `cmd/worker/main.go`:
@@ -209,7 +205,7 @@ w.Register(
 ### NATS dedupID = task ID
 
 `dedupID` при публикации в NATS **обязательно** должен совпадать с `id` задачи в `task_statuses`. Это гарантирует идемпотентность —
-если задача уже была опубликована, NATS отбросит дубликат.
+если задача уже была опубликована, NATS отбросит дубликат. `CreateTaskUseCase` делает это автоматически.
 
 ### `task_params` — все параметры расчётов
 
@@ -225,10 +221,21 @@ w.Register(
 Обновления статуса в БД — best-effort. Если `UpdateStatus` вернул ошибку, она логируется, но работа не прерывается.
 Это изолирует слой мониторинга от бизнес-логики.
 
-### Когда `experiment_id` = nil
+### Универсальное создание задач
 
-Если задача не привязана к конкретному эксперименту (например, обработка набора профилей из разных экспериментов),
-поле `experiment_id` оставляется `nil`. Все идентификаторы профилей и прочие ссылки хранятся в `task_params`.
+`CreateTaskUseCase` — единый способ создания любых асинхронных задач. Все use case'ы должны создавать задачи
+только через него, а не напрямую через `TaskStatusRepository` и `MessageQueue`.
+
+`TaskRequest` принимает:
+- `subject` (обязательно) — NATS subject, на который публикуется задача
+- `task_type` (обязательно) — тип задачи, сохраняется в `task_params`
+- `task_id` (опционально) — если нужно явно задать ID задачи
+- `payload` (опционально) — произвольные параметры в JSON
+
+### Связь задачи с экспериментом
+
+Поле `experiment_id` было удалено из `task_statuses`. Если задача привязана к эксперименту,
+ID эксперимента передаётся через `task_params` или хранится в `payload`.
 
 ## Domain-типы
 
@@ -248,7 +255,6 @@ type TaskRecord struct {
     ID           uuid.UUID
     Subject      string
     Status       TaskStatus
-    ExperimentID *uuid.UUID       // nil для задач без эксперимента
     TaskParams   json.RawMessage  // параметры расчётов
     ErrorMessage string
     CreatedAt    time.Time
@@ -260,7 +266,6 @@ type TaskRecord struct {
 func NewTaskRecord(
     id uuid.UUID,
     subject string,
-    experimentID *uuid.UUID,
     taskParams json.RawMessage,
 ) TaskRecord
 ```
@@ -274,7 +279,6 @@ type TaskStatusRepository interface {
     Create(ctx context.Context, record *domain.TaskRecord) error
     UpdateStatus(ctx context.Context, id uuid.UUID, status domain.TaskStatus, errorMessage string) error
     FindByID(ctx context.Context, id uuid.UUID) (*domain.TaskRecord, error)
-    FindByExperimentID(ctx context.Context, experimentID uuid.UUID) ([]domain.TaskRecord, error)
     FindAll(ctx context.Context) ([]domain.TaskRecord, error)
 }
 ```
@@ -287,9 +291,10 @@ POST /api/v1/experiments
 CreateExperimentUseCase.Execute
   ├── upload files to MinIO
   ├── create experiment in DB
-  ├── INSERT task_statuses (id=expID, status=pending,
-  │       subject=parse_experiment, experiment_id=expID)
-  └── Publish NATS (subject=parse_experiment, data=expID, dedup=expID)
+  └── createTaskUC.Execute (subject=parse_experiment, taskID=expID)
+      ├── INSERT task_statuses (id=expID, status=pending,
+      │       subject=parse_experiment)
+      └── Publish NATS (subject=parse_experiment, data={...}, dedup=expID)
   ↓
 Worker получает сообщение
 ParseExperimentHandler.Handle
