@@ -41,12 +41,21 @@
   `CreateTaskUseCase` instead of directly.
 
 ### Changed
-- **`CreateTaskUseCase.Execute`** — идемпотентное поведение: если задача с таким
-  `TaskID` уже существует, возвращает её статус без повторной публикации в NATS.
+- **`CreateTaskUseCase`** — теперь универсальный use case: `subject` и опциональный
+  `task_id` передаются явно в `TaskRequest`. Идемпотентное поведение: если задача с
+  таким `TaskID` уже существует, возвращает её статус без повторной публикации.
+- **`NewCreateExperimentUseCase`** — сигнатура изменена: принимает `*CreateTaskUseCase`
+  вместо `queue, taskStatusRepo`.
+- **`NewTaskRecord`** — сигнатура изменена: убран параметр `experimentID`, осталось
+  три параметра: `id, subject, taskParams`.
+- **`ParseExperimentHandler`** — обновлён для работы с новым форматом сообщений
+  от `CreateTaskUseCase` (JSON вместо raw UUID).
 - **NATS dedup window**: 2 мин → **1 час** — предотвращает повторную обработку
   задачи, если один и тот же `dedupID` опубликован снова в течение часа.
-- **NATS AckWait**: 30 с → **5 мин** — чтобы крупные эксперименты успевали
-  обработаться до редиливери NATS.
+- **NATS AckWait**: 30 с → **30 мин** — чтобы крупные эксперименты (672 профиля)
+  успевали обработаться до редиливери NATS.
+- **PrepareExperimentHandler** — добавлены логи: количество найденных пар сигнал+фон
+  и прогресс обработки каждые 100 профилей.
 
 ### Removed
 - **`experiment_id` from `lidar.task_statuses`** — column removed (migration
@@ -55,16 +64,6 @@
 - **`FindByExperimentID` from `TaskStatusRepository`** — method removed since it
   was unused in production code.
 - **`ExperimentID` field from `GetTaskStatusResponse`** — no longer returned in API.
-
-### Changed (previous)
-- **`CreateTaskUseCase`** — now a universal use case: `subject` and optional
-  `task_id` are passed explicitly in `TaskRequest`.
-- **`NewCreateExperimentUseCase`** — signature changed: accepts `*CreateTaskUseCase`
-  instead of `queue, taskStatusRepo`.
-- **`NewTaskRecord`** — signature changed: `experimentID` parameter removed,
-  three parameters remain: `id, subject, taskParams`.
-- **`ParseExperimentHandler`** — обновлён для работы с новым форматом сообщений
-  от `CreateTaskUseCase` (JSON вместо raw UUID).
 
 ## [Unreleased] (previous)
 
