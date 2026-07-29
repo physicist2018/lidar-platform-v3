@@ -115,6 +115,10 @@ export async function renderExperimentDetail(container, params) {
             </div>
           </div>
 
+          <div id="task-parse-waiting" class="flash flash-info" hidden>
+            Обработка архива эксперимента ещё не завершена. Дождитесь окончания, чтобы создать задачу.
+          </div>
+
           <div id="task-error" class="flash flash-error" hidden></div>
           <div id="task-success" class="flash flash-success" hidden></div>
 
@@ -140,6 +144,7 @@ export async function renderExperimentDetail(container, params) {
   const taskError = document.getElementById("task-error");
   const taskSuccess = document.getElementById("task-success");
   const taskBtn = document.getElementById("task-btn");
+  const taskParseWaiting = document.getElementById("task-parse-waiting");
 
   subjectSelect.addEventListener("change", () => {
     taskParamsDiv.hidden = subjectSelect.value === "";
@@ -176,7 +181,6 @@ export async function renderExperimentDetail(container, params) {
       addTaskId(expId, result.task_id);
       taskSuccess.textContent = `Задача создана! ID: ${result.task_id}`;
       taskSuccess.hidden = false;
-      // Refresh task list
       renderTasks(expId);
     } catch (err) {
       taskError.textContent = err.message;
@@ -187,11 +191,33 @@ export async function renderExperimentDetail(container, params) {
     }
   });
 
-  // --- Render tasks ---
-  renderTasks(expId);
+  // --- Parse task status check ---
+  // The parse task has the same ID as the experiment.
+  // Block task creation until parse is complete.
+  async function checkParseTask() {
+    try {
+      const task = await getTaskStatus(expId);
+      const isRunning = task.status === "pending" || task.status === "processing";
+      taskBtn.disabled = isRunning;
+      taskParseWaiting.hidden = !isRunning;
+    } catch {
+      // 404 or error — no parse task, form is available
+      taskBtn.disabled = false;
+      taskParseWaiting.hidden = true;
+    }
+  }
 
-  // Auto-refresh task statuses every 5 seconds.
-  taskRefreshInterval = setInterval(() => renderTasks(expId), 5000);
+  // --- Render tasks ---
+  async function refresh() {
+    await checkParseTask();
+    await renderTasks(expId);
+  }
+
+  // Initial load
+  refresh();
+
+  // Auto-refresh every 5 seconds.
+  taskRefreshInterval = setInterval(refresh, 5000);
 }
 
 async function renderTasks(expId) {

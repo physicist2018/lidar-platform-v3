@@ -45,6 +45,7 @@ type CreateExperimentResponse struct {
 	Latitude    float32   `json:"latitude"`
 	Longitude   float32   `json:"longitude"`
 	Comments    string    `json:"comments"`
+	ParseTaskID string    `json:"parse_task_id"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -123,17 +124,7 @@ func (uc *CreateExperimentUseCase) Execute(ctx context.Context, req *CreateExper
 	}
 
 	// 5. Create async parse task.
-	if uc.createTask != nil {
-		if _, err := uc.createTask.Execute(ctx, &TaskRequest{
-			Subject:  string(ports.SubjectParseExperiment),
-			TaskType: "parse_experiment",
-			TaskID:   expID.String(),
-		}); err != nil {
-			log.Printf("create parse task: %v", err)
-		}
-	}
-
-	return &CreateExperimentResponse{
+	response := &CreateExperimentResponse{
 		ID:          experiment.ID,
 		Title:       experiment.Title,
 		ZenithAngle: experiment.ZenithAngle,
@@ -141,7 +132,22 @@ func (uc *CreateExperimentUseCase) Execute(ctx context.Context, req *CreateExper
 		Longitude:   experiment.GeoLocation.Longitude,
 		Comments:    experiment.Comments,
 		CreatedAt:   experiment.CreatedAt,
-	}, nil
+	}
+
+	if uc.createTask != nil {
+		taskResp, err := uc.createTask.Execute(ctx, &TaskRequest{
+			Subject:  string(ports.SubjectParseExperiment),
+			TaskType: "parse_experiment",
+			TaskID:   expID.String(),
+		})
+		if err != nil {
+			log.Printf("create parse task: %v", err)
+		} else {
+			response.ParseTaskID = taskResp.TaskID
+		}
+	}
+
+	return response, nil
 }
 
 // ---------------------------------------------------------------------------
