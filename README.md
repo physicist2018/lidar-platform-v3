@@ -6,6 +6,17 @@ applies background correction, and prepares data for atmospheric analysis.
 ## Architecture
 
 ```
+Frontend SPA (Vite + vanilla JS)  — https://localhost / localhost:5173
+  ├── /login, /register          — auth via identity service
+  ├── /experiments               — list / detail / upload
+  └── /experiments/:id           — task management
+
+Nginx (SSL termination + routing)
+  ├── / → frontend SPA
+  ├── /login, /register, /verify  → identity:8090
+  ├── /api/*                     → lidar:8091
+  └── /adminer/*                 → adminer:8080
+
 HTTP API (cmd/lidar)
   ├── POST   /api/v1/experiments/create  — upload experiment files
   ├── POST   /api/v1/experiments/task    — create processing task
@@ -55,6 +66,31 @@ In docker-compose, this is configured automatically.
 
 ## Quick start
 
+### Docker Compose (full stack)
+
+```bash
+# Build frontend
+cd frontend && npm run build && cd ..
+
+# Start all services
+docker compose up -d --build
+
+# Open https://localhost in browser
+```
+
+### Development mode (hot reload)
+
+```bash
+# Terminal 1 — backend services
+docker compose up -d identity lidar worker nats minio postgres
+
+# Terminal 2 — frontend dev server
+cd frontend && npm run dev
+# → http://localhost:5173 (API proxies through nginx at https://localhost)
+```
+
+### Local dev (without Docker)
+
 ```bash
 # Terminal 1 — identity service
 bash run_identity.sh
@@ -63,7 +99,10 @@ bash run_identity.sh
 bash run_lidar.sh
 bash run_worker.sh
 
-# Terminal 3 — register and login
+# Terminal 3 — frontend
+cd frontend && npm run dev
+
+# Terminal 4 — register and login
 ./scripts/auth.sh full user@example.com mypassword
 ```
 
@@ -88,6 +127,16 @@ internal/
 │   └── ports/          Port interfaces (repositories, message queue, file storage)
 └── worker/            Task handler interfaces + worker lifecycle
 
+frontend/
+├── index.html          SPA entry point
+├── vite.config.js      Proxy + build config
+└── src/
+    ├── api.js          HTTP client (JWT, 401 redirect)
+    ├── router.js       Hash-based SPA router
+    ├── store.js        Application state
+    ├── styles.css      Full UI kit (cards, tables, forms, badges)
+    └── pages/          Login, register, verified, experiments, upload
+
 scripts/
 └── auth.sh            Auth helper script (register, login, token)
 
@@ -101,40 +150,31 @@ docs/
 
 ## Tests
 
-Проект содержит **68 тестов**, покрывающих ключевые компоненты.
+Проект содержит **68 тестов** (Go backend), покрывающих ключевые компоненты.
 
 ### Как запустить
 
 ```bash
-# Все тесты
+# Backend unit tests
 go test ./internal/...
 
-# Только unit-тесты (без Docker/БД)
-go test ./internal/lidar/domain/... \
-       ./internal/lidar/application/... \
-       ./internal/lidar/infrastructure/server/...
-
-# Интеграционные тесты с PostgreSQL (требует Docker)
-DOCKER_TEST=1 go test ./internal/lidar/infrastructure/repository/...
-
-# Интеграционные тесты с существующей БД
-TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/main_db?search_path=lidar&sslmode=disable \
-  go test ./internal/lidar/infrastructure/repository/...
+# Frontend build verification
+cd frontend && npm run build
 ```
 
 ### Тестовые файлы
 
 | Файл | Тестов | Что тестирует |
 |------|--------|---------------|
-| `server/auth_test.go` | 11 | JWT middleware: валидный токен → 200 + user_id; отсутствует Authorization → 401; пустой Bearer → 401; неверный формат → 401; невалидный токен → 401; неверный секрет → 401; истекший токен → 401; пустой secret fallback; UserIDFromContext; extractBearerToken (6 кейсов) |
-| `server/task_handler_test.go` | 8 | HandleCreateTask: invalid JSON → 400; пустой Subject → 400; пустой TaskType → 400. HandleGetTaskStatus: успех → 200 + статус; невалидный UUID → 400; не найдено → 404; отсутствует taskID → 400 |
-| `server/router_test.go` | 4 | /health без auth → 200; /api/v1/* без auth → 401 (3 endpoints); с валидным токеном → 501 (auth прошёл); с истекшим токеном → 401 |
-| `server/experiment_handler_test.go` | 9 | HandleCreateExperiment: успех со всеми полями, успех без опциональных файлов, отсутствует title → 400, отсутствует zenith_angle → 400, неверный zenith_angle → 400, отсутствует latitude → 400, отсутствует longitude → 400, отсутствует experiment_files → 400, use case error → 500 |
-| `domain/domain_test.go` | 16 | TaskRecord: создание, nil params. Experiment: конструктор по умолчанию, с опциями. TimeRange: валидный, inverted, равные. GeoLocation: валидные координаты, неверная широта, неверная долгота. SoftDelete/Restore эксперимента. LicelFile: базовый, с filename, soft delete. LicelProfile: валидный, несовпадение длины данных, PointAt. AtmosphereProfile: валидный, несовпадение длин. ObjectPath: Key/String, пустой bucket/path. StorageObject: конструктор с опциями |
-| `application/create_task_test.go` | 4 | CreateTaskUseCase: пустой Subject → error, пустой TaskType → error, успех (создание TaskRecord + публикация в NATS) |
-| `application/get_task_status_test.go` | 3 | GetTaskStatusUseCase: найдено → response, не найдено → error, with params (failed + error message + JSON params) |
-| `repository/task_status_repo_test.go` | 7 | TaskStatusRepository (реальный PostgreSQL через testcontainers): Create + FindByID; Create с experiment_id; дубликат ID → error; UpdateStatus (processing → completed + started_at/finished_at); UpdateStatus failed + error_message; FindByID not found → ErrObjectNotFound; FindAll |
-| `worker/prepare_experiment_test.go` | 6 | processProfile core logic: background subtraction file/mean, shorter background, tail mean out of range, no background, invalid bin width |
+| `server/auth_test.go` | 11 | JWT middleware |
+| `server/task_handler_test.go` | 8 | HandleCreateTask, HandleGetTaskStatus |
+| `server/router_test.go` | 4 | Health + auth checks |
+| `server/experiment_handler_test.go` | 9 | Experiment creation handler |
+| `domain/domain_test.go` | 16 | All domain entities |
+| `application/create_task_test.go` | 4 | CreateTaskUseCase (empty subject, empty task_type, success, idempotent) |
+| `application/get_task_status_test.go` | 3 | GetTaskStatusUseCase |
+| `repository/task_status_repo_test.go` | 7 | TaskStatusRepository (real PG via testcontainers) |
+| `worker/prepare_experiment_test.go` | 6 | processProfile core logic |
 
 ## Dependencies
 
@@ -144,3 +184,4 @@ TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/main_db?search_path=lida
 - **MinIO** (S3-compatible) — raw file storage
 - **sqlc** — type-safe database queries
 - **Goose** — database migrations
+- **Node.js 20+** — frontend build

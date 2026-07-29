@@ -3,6 +3,21 @@
 ## [Unreleased]
 
 ### Added
+- **Фронтенд SPA** — одностраничное приложение на Vite + vanilla JS:
+  - `/login` — форма входа (JWT)
+  - `/register` — регистрация с валидацией
+  - `/verified` — результат верификации email
+  - `/experiments` — список экспериментов с фильтром по датам
+  - `/experiments/:id` — детали эксперимента, форма создания задачи,
+    отслеживание статусов задач (автообновление каждые 5с)
+  - `/upload` — multipart загрузка эксперимента (ZIP + LICEL + CSV опционально)
+- **Nginx раздаёт фронтенд** — `location /` отдаёт SPA из `/usr/share/nginx/html`,
+  API-запросы проксируются через nginx к соответствующим сервисам.
+- **CreateExperimentResponse.parse_task_id** — ответ создания эксперимента теперь
+  содержит ID автоматически созданной задачи `lidar.task.parse_experiment`.
+- **Блокировка создания задач до завершения парсинга** — на странице деталей
+  эксперимента форма создания задачи недоступна, пока `lidar.task.parse_experiment`
+  не перейдёт в статус `completed` или `failed`.
 - **Prepare experiment worker** — новый хендлер `PrepareExperimentHandler` для
   `lidar.task.prepare_experiment`. Делает поканальный вычет фона и обрезку профилей
   по высоте:
@@ -17,16 +32,21 @@
   `CreatePreparedProfile`, `ListPreparedProfilesByMetaID`.
 - **Port interfaces** — `PreparedMetaRepository`, `PreparedProfileRepository`.
 - **Postgres repositories** — реализация prepared-репозиториев.
-- **Tests** (6 тестов) — `processProfile` core logic: background subtraction (file/mean),
-  shorter background padding, tail mean out of range, no background, invalid bin width.
+- **Tests** (6 тестов) — `processProfile` core logic.
 - **`subject` in `POST /api/v1/experiments/task`** — subject is now an explicit
-  required field `"subject"` in the JSON request. Previously it was hardcoded to
-  `lidar.task.process_experiment`, now any subject can be specified.
+  required field `"subject"` in the JSON request.
 - **`task_id` in `POST /api/v1/experiments/task`** — optional field; auto-generated
-  if empty. Allows explicitly setting the task ID (e.g. `expID` for a parse task).
+  if empty.
 - **Universal task creation** — `CreateExperimentUseCase` now creates tasks through
-  `CreateTaskUseCase` instead of directly. Removed duplicate `queue` and
-  `taskStatusRepo` dependencies from `CreateExperimentUseCase`.
+  `CreateTaskUseCase` instead of directly.
+
+### Changed
+- **`CreateTaskUseCase.Execute`** — идемпотентное поведение: если задача с таким
+  `TaskID` уже существует, возвращает её статус без повторной публикации в NATS.
+- **NATS dedup window**: 2 мин → **1 час** — предотвращает повторную обработку
+  задачи, если один и тот же `dedupID` опубликован снова в течение часа.
+- **NATS AckWait**: 30 с → **5 мин** — чтобы крупные эксперименты успевали
+  обработаться до редиливери NATS.
 
 ### Removed
 - **`experiment_id` from `lidar.task_statuses`** — column removed (migration
@@ -36,7 +56,7 @@
   was unused in production code.
 - **`ExperimentID` field from `GetTaskStatusResponse`** — no longer returned in API.
 
-### Changed
+### Changed (previous)
 - **`CreateTaskUseCase`** — now a universal use case: `subject` and optional
   `task_id` are passed explicitly in `TaskRequest`.
 - **`NewCreateExperimentUseCase`** — signature changed: accepts `*CreateTaskUseCase`
