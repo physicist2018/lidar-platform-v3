@@ -39,6 +39,15 @@ export function renderPrepared(container) {
             <option value="profile_avg">Profile Avg</option>
           </select>
         </div>
+        <div class="form-group">
+          <label for="prep-transform">Преобразование</label>
+          <select id="prep-transform">
+            <option value="raw">Raw</option>
+            <option value="pr2">P × r²</option>
+            <option value="log10_pr2">log₁₀(P × r²)</option>
+            <option value="log10_raw">log₁₀(P)</option>
+          </select>
+        </div>
       </div>
 
       <div class="form-actions">
@@ -59,18 +68,18 @@ export function renderPrepared(container) {
   const polSelect = document.getElementById("prep-polarization");
   const devSelect = document.getElementById("prep-device");
   const chartSelect = document.getElementById("prep-chart");
+  const transformSelect = document.getElementById("prep-transform");
   const showBtn = document.getElementById("prep-show-btn");
   const errorEl = document.getElementById("prep-error");
   const loadingEl = document.getElementById("prep-loading");
   const chartContainer = document.getElementById("prep-chart-container");
 
-  let currentFilters = null; // cached filter data for the selected experiment
+  let currentFilters = null;
 
   // ---- Load experiments ----
   async function loadExperiments() {
     try {
       const data = await listPreparedExperiments();
-      // data is array of {experiment_id: "..."}
       expSelect.innerHTML =
         `<option value="">— выберите —</option>` +
         data.map((e) => `<option value="${e.experiment_id}">${e.experiment_id}</option>`).join("");
@@ -113,7 +122,6 @@ export function renderPrepared(container) {
 
     if (!currentFilters) return;
 
-    // Filter polarizations in-memory
     let pols = currentFilters.polarizations;
     polSelect.innerHTML =
       `<option value="">— все —</option>` +
@@ -160,6 +168,7 @@ export function renderPrepared(container) {
     const pol = polSelect.value;
     const dev = devSelect.value;
     const chartType = chartSelect.value;
+    const transform = transformSelect.value;
 
     errorEl.hidden = true;
     loadingEl.hidden = false;
@@ -180,7 +189,7 @@ export function renderPrepared(container) {
         return;
       }
 
-      renderChart(profiles, chartType, chartContainer);
+      renderChart(profiles, chartType, transform, chartContainer);
     } catch (err) {
       errorEl.textContent = err.message;
       errorEl.hidden = false;
@@ -189,37 +198,80 @@ export function renderPrepared(container) {
     }
   });
 
-  // ---- Chart rendering ----
-  function renderChart(profiles, chartType, container) {
+  // -----------------------------------------------------------------------
+  // Transform helpers
+  // -----------------------------------------------------------------------
+
+  function applyTransform(value, binIdx, binWidth, transform) {
+    const r = binIdx * binWidth;
+    switch (transform) {
+      case "pr2":
+        return value * r * r;
+      case "log10_pr2":
+        if (r <= 0 || value <= 0) return null;
+        return Math.log10(value * r * r);
+      case "log10_raw":
+        if (value <= 0) return null;
+        return Math.log10(value);
+      default:
+        return value;
+    }
+  }
+
+  function transformArray(data, binWidth, transform) {
+    if (transform === "raw") return data;
+    return data.map((v, i) => applyTransform(v, i, binWidth, transform));
+  }
+
+  // -----------------------------------------------------------------------
+  // Chart rendering
+  // -----------------------------------------------------------------------
+
+  function renderChart(profiles, chartType, transform, container) {
     const binWidth = profiles[0].bin_width || 30;
     const maxBins = Math.max(...profiles.map((p) => (p.data || []).length));
     const yAxis = Array.from({ length: maxBins }, (_, i) => i * binWidth);
 
+    // Pre-transform all profiles
+    const transformed = profiles.map((p) => {
+      const d = p.data || [];
+      return { ...p, data: transformArray(d, binWidth, transform) };
+    });
+
+    const transformLabel = getTransformLabel(transform);
+
     if (chartType === "heatmap") {
-      const zData = profiles.map((p) => {
-        const d = p.data || [];
-        return d.length < maxBins ? [...d, ...Array(maxBins - d.length).fill(null)] : d;
-      });
+      // Build matrix: rows = distance bins, cols = profiles
+      // This way Plotly maps: z[binIdx][profileIdx] → x[profileIdx], y[binIdx]
+      const zTransposed = [];
+      for (let b = 0; b < maxBins; b++) {
+        const row = [];
+        for (let p = 0; p < transformed.length; p++) {
+          const d = transformed[p].data || [];
+          row.push(b < d.length ? d[b] : null);
+        }
+        zTransposed.push(row);
+      }
 
       const trace = {
-        z: zData,
-        x: profiles.map((_, i) => i),
+        z: zTransposed,
+        x: transformed.map((_, i) => i),
         y: yAxis,
         type: "heatmap",
         colorscale: "Viridis",
-        colorbar: { title: "Signal" },
+        colorbar: { title: transformLabel },
       };
 
       const layout = {
-        title: `Heatmap (${profiles.length} profiles)`,
-        xaxis: { title: "Profile #" },
+        title: `Heatmap (${transformed.length} profiles) — ${transformLabel}`,
+        xaxis: { title: "Profile # (time)" },
         yaxis: { title: "Distance (m)" },
         margin: { l: 60, r: 40, t: 50, b: 60 },
       };
 
       Plotly.newPlot(container, [trace], layout);
     } else if (chartType === "profile") {
-      const traces = profiles.map((p, i) => ({
+      const traces = transformed.map((p, i) => ({
         x: p.data || [],
         y: yAxis.slice(0, (p.data || []).length),
         type: "scatter",
@@ -229,22 +281,24 @@ export function renderPrepared(container) {
       }));
 
       const layout = {
-        title: `Profiles (${profiles.length})`,
-        xaxis: { title: "Signal" },
+        title: `Profiles (${transformed.length}) — ${transformLabel}`,
+        xaxis: { title: transformLabel },
         yaxis: { title: "Distance (m)" },
         margin: { l: 60, r: 40, t: 50, b: 60 },
       };
 
       Plotly.newPlot(container, traces, layout);
     } else if (chartType === "profile_avg") {
-      const maxLen = Math.max(...profiles.map((p) => (p.data || []).length));
+      const maxLen = Math.max(...transformed.map((p) => (p.data || []).length));
       const sums = Array(maxLen).fill(0);
       const counts = Array(maxLen).fill(0);
-      profiles.forEach((p) => {
+      transformed.forEach((p) => {
         const d = p.data || [];
         for (let i = 0; i < d.length; i++) {
-          sums[i] += d[i];
-          counts[i]++;
+          if (d[i] !== null) {
+            sums[i] += d[i];
+            counts[i]++;
+          }
         }
       });
       const avg = sums.map((s, i) => (counts[i] > 0 ? s / counts[i] : null));
@@ -259,13 +313,23 @@ export function renderPrepared(container) {
       };
 
       const layout = {
-        title: `Average Profile (${profiles.length} profiles)`,
-        xaxis: { title: "Mean Signal" },
+        title: `Average Profile (${transformed.length} profiles) — ${transformLabel}`,
+        xaxis: { title: `Mean ${transformLabel}` },
         yaxis: { title: "Distance (m)" },
         margin: { l: 60, r: 40, t: 50, b: 60 },
       };
 
       Plotly.newPlot(container, [trace], layout);
     }
+  }
+
+  function getTransformLabel(transform) {
+    const labels = {
+      raw: "Signal",
+      pr2: "P × r²",
+      log10_pr2: "log₁₀(P × r²)",
+      log10_raw: "log₁₀(P)",
+    };
+    return labels[transform] || "Signal";
   }
 }
