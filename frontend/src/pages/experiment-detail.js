@@ -1,6 +1,9 @@
 import { listExperiments, createTask, getTaskStatus } from "../api.js";
 import { getState, setState } from "../store.js";
 
+// Module-level interval tracker to avoid accumulating intervals.
+let taskRefreshInterval = null;
+
 // Track task IDs per experiment in localStorage
 function getTaskIds(expId) {
   try {
@@ -20,6 +23,12 @@ function addTaskId(expId, taskId) {
 
 export async function renderExperimentDetail(container, params) {
   const expId = params.id;
+
+  // Clear any previous interval from a previous experiment detail visit.
+  if (taskRefreshInterval) {
+    clearInterval(taskRefreshInterval);
+    taskRefreshInterval = null;
+  }
 
   container.innerHTML = `<div class="loading">Загрузка...</div>`;
 
@@ -181,9 +190,8 @@ export async function renderExperimentDetail(container, params) {
   // --- Render tasks ---
   renderTasks(expId);
 
-  // Auto-refresh task statuses every 5 seconds
-  const interval = setInterval(() => renderTasks(expId), 5000);
-  return () => clearInterval(interval);
+  // Auto-refresh task statuses every 5 seconds.
+  taskRefreshInterval = setInterval(() => renderTasks(expId), 5000);
 }
 
 async function renderTasks(expId) {
