@@ -9,8 +9,37 @@ import (
 	"github.com/physcist2018/lidar-platform-v3/internal/lidar/domain"
 )
 
+func TestMedianFilter3(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []float32
+		expected []float32
+	}{
+		{"empty", nil, nil},
+		{"single", []float32{42}, []float32{42}},
+		{"two", []float32{10, 20}, []float32{15, 15}},
+		{"three_asc", []float32{10, 20, 30}, []float32{15, 20, 25}},
+		{"three_desc", []float32{30, 20, 10}, []float32{25, 20, 15}},
+		{"spike_middle", []float32{10, 100, 20}, []float32{55, 20, 60}},
+		{"spike_start", []float32{100, 10, 20}, []float32{55, 20, 15}},
+		{"spike_end", []float32{10, 20, 100}, []float32{15, 20, 60}},
+		{"five", []float32{100, 200, 300, 400, 500}, []float32{150, 200, 300, 400, 450}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := medianFilter3(tt.input)
+			if tt.expected == nil {
+				assert.Nil(t, result)
+			} else {
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
 func TestProcessProfile_BackgroundFile(t *testing.T) {
-	handler := &PrepareExperimentHandler{} // only uses processProfile — no dependencies needed
+	handler := &PrepareExperimentHandler{}
 
 	signal := []float64{100, 200, 300, 400, 500}
 	bg := []float64{10, 20, 30, 40, 50}
@@ -29,7 +58,7 @@ func TestProcessProfile_BackgroundFile(t *testing.T) {
 	meta := domain.PreparedMeta{ID: uuid.New()}
 	payload := PrepareExperimentPayload{
 		BackgroundType: "file",
-		TrimFrom:       150, // 150m / 30m per bin = 5 bins
+		TrimFrom:       150,
 	}
 
 	result, err := handler.processProfile(pp, meta, domain.BackgroundFromFile, payload)
@@ -37,7 +66,6 @@ func TestProcessProfile_BackgroundFile(t *testing.T) {
 	assert.Equal(t, meta.ID, result.PreparedMetaID)
 	assert.Equal(t, pp.Signal.ProfileID, result.LicelProfileID)
 
-	// Expected: signal - background = [90, 180, 270, 360, 450]
 	expected := []float32{90, 180, 270, 360, 450}
 	assert.Equal(t, expected, result.Data)
 }
@@ -46,7 +74,7 @@ func TestProcessProfile_BackgroundFile_ShorterBackground(t *testing.T) {
 	handler := &PrepareExperimentHandler{}
 
 	signal := []float64{100, 200, 300, 400, 500}
-	bg := []float64{10, 20, 30} // shorter than signal
+	bg := []float64{10, 20, 30}
 
 	pp := domain.PairedProfile{
 		Signal: domain.ProfileData{
@@ -67,14 +95,11 @@ func TestProcessProfile_BackgroundFile_ShorterBackground(t *testing.T) {
 
 	result, err := handler.processProfile(pp, meta, domain.BackgroundFromFile, payload)
 	assert.NoError(t, err)
-	// Only first 3 bins subtracted, rest unchanged before trim
-	// Expected: [90, 180, 270, 400, 500] trimmed to 5 bins
 	assert.Len(t, result.Data, 5)
 	assert.Equal(t, float32(90), result.Data[0])
 	assert.Equal(t, float32(400), result.Data[3])
 
-	// Verify trim
-	payload.TrimFrom = 60 // 60/30 = 2 bins
+	payload.TrimFrom = 60
 	result, err = handler.processProfile(pp, meta, domain.BackgroundFromFile, payload)
 	assert.NoError(t, err)
 	assert.Len(t, result.Data, 2)
@@ -83,7 +108,9 @@ func TestProcessProfile_BackgroundFile_ShorterBackground(t *testing.T) {
 func TestProcessProfile_BackgroundMean(t *testing.T) {
 	handler := &PrepareExperimentHandler{}
 
-	// signal: tail from index 3 onward = [400, 500], mean = 450
+	// signal: [100, 200, 300, 400, 500]
+	// median filtered: [150, 200, 300, 400, 450]
+	// tail from index 3: [400, 450], mean = 425
 	signal := []float64{100, 200, 300, 400, 500}
 
 	pp := domain.PairedProfile{
@@ -97,14 +124,14 @@ func TestProcessProfile_BackgroundMean(t *testing.T) {
 	meta := domain.PreparedMeta{ID: uuid.New()}
 	payload := PrepareExperimentPayload{
 		BackgroundType: "mean",
-		BackgroundFrom: 90,  // 90/30 = bin index 3
-		TrimFrom:       150, // 150/30 = 5 bins
+		BackgroundFrom: 90,
+		TrimFrom:       150,
 	}
 
 	result, err := handler.processProfile(pp, meta, domain.BackgroundMean, payload)
 	assert.NoError(t, err)
-	// Expected: [100-450, 200-450, 300-450, 400-450, 500-450] = [-350, -250, -150, -50, 50]
-	assert.Equal(t, []float32{-350, -250, -150, -50, 50}, result.Data)
+	// [100-425, 200-425, 300-425, 400-425, 500-425] = [-325, -225, -125, -25, 75]
+	assert.Equal(t, []float32{-325, -225, -125, -25, 75}, result.Data)
 }
 
 func TestProcessProfile_BackgroundMean_TailStartOutOfRange(t *testing.T) {
@@ -123,15 +150,16 @@ func TestProcessProfile_BackgroundMean_TailStartOutOfRange(t *testing.T) {
 	meta := domain.PreparedMeta{ID: uuid.New()}
 	payload := PrepareExperimentPayload{
 		BackgroundType: "mean",
-		BackgroundFrom: 300, // 300/30 = 10 bins, larger than signal length
+		BackgroundFrom: 300,
 		TrimFrom:       150,
 	}
 
 	result, err := handler.processProfile(pp, meta, domain.BackgroundMean, payload)
 	assert.NoError(t, err)
-	// tailStart >= len(result) → default to len/2 = 1
-	// mean of [200] = 200, so [100-200, 200-200] = [-100, 0]
-	assert.Equal(t, []float32{-100, 0}, result.Data)
+	// tailStart >= len(result) -> len/2 = 1
+	// median filtered: [150, 150], tail from 1: [150], mean = 150
+	// [100-150, 200-150] = [-50, 50]
+	assert.Equal(t, []float32{-50, 50}, result.Data)
 }
 
 func TestProcessProfile_NoBackground(t *testing.T) {
@@ -151,12 +179,11 @@ func TestProcessProfile_NoBackground(t *testing.T) {
 	meta := domain.PreparedMeta{ID: uuid.New()}
 	payload := PrepareExperimentPayload{
 		BackgroundType: "file",
-		TrimFrom:       150, // 5 bins, but signal has 3
+		TrimFrom:       150,
 	}
 
 	result, err := handler.processProfile(pp, meta, domain.BackgroundFromFile, payload)
 	assert.NoError(t, err)
-	// No background file — signal unchanged, trim doesn't cut
 	assert.Equal(t, []float32{100, 200, 300}, result.Data)
 }
 

@@ -138,6 +138,51 @@ func (h *PrepareExperimentHandler) Handle(ctx context.Context, data []byte) erro
 	return nil
 }
 
+// medianFilter3 applies a median filter with window size 3 to the input slice.
+// At boundaries (i=0 and i=n-1) it falls back to the mean of the two available neighbors.
+func medianFilter3(data []float32) []float32 {
+	if len(data) == 0 {
+		return nil
+	}
+	if len(data) == 1 {
+		result := make([]float32, 1)
+		copy(result, data)
+		return result
+	}
+	result := make([]float32, len(data))
+	for i := range data {
+		switch {
+		case i == 0:
+			result[i] = (data[0] + data[1]) / 2
+		case i == len(data)-1:
+			result[i] = (data[len(data)-2] + data[len(data)-1]) / 2
+		default:
+			a, b, c := data[i-1], data[i], data[i+1]
+			// Sort three values, pick the middle one.
+			if a <= b && a <= c {
+				if b <= c {
+					result[i] = b
+				} else {
+					result[i] = c
+				}
+			} else if b <= a && b <= c {
+				if a <= c {
+					result[i] = a
+				} else {
+					result[i] = c
+				}
+			} else {
+				if a <= b {
+					result[i] = a
+				} else {
+					result[i] = b
+				}
+			}
+		}
+	}
+	return result
+}
+
 // processProfile performs background removal and trimming on a single paired profile.
 func (h *PrepareExperimentHandler) processProfile(
 	pp domain.PairedProfile,
@@ -178,9 +223,13 @@ func (h *PrepareExperimentHandler) processProfile(
 			tailStart = len(result) / 2
 		}
 		if tailStart < len(result) {
+			// Apply median filter (window=3) to remove noise spikes,
+			// then calculate mean on the smoothed tail for a robust
+			// background estimate.
+			smoothed := medianFilter3(result)
 			var sum float64
 			count := 0
-			for _, v := range result[tailStart:] {
+			for _, v := range smoothed[tailStart:] {
 				sum += float64(v)
 				count++
 			}
