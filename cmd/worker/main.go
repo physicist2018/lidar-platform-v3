@@ -55,6 +55,8 @@ func main() {
 	licelProfileRepo := repository.NewPostgresLicelProfileRepository(dbConn)
 	atmosphereProfileRepo := repository.NewPostgresAtmosphereProfileRepository(dbConn)
 	taskStatusRepo := repository.NewPostgresTaskStatusRepository(dbConn)
+	preparedMetaRepo := repository.NewPostgresPreparedMetaRepository(dbConn)
+	preparedProfileRepo := repository.NewPostgresPreparedProfileRepository(dbConn)
 
 	// ---------------------------------------------------------------
 	// 3. MinIO
@@ -83,6 +85,10 @@ func main() {
 		worker.NewParseExperimentHandler(
 			experimentRepo, storageObjRepo, fileStorage,
 			licelFileRepo, licelProfileRepo, atmosphereProfileRepo,
+			taskStatusRepo,
+		),
+		worker.NewPrepareExperimentHandler(
+			licelProfileRepo, preparedMetaRepo, preparedProfileRepo,
 			taskStatusRepo,
 		),
 	)

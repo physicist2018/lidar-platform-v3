@@ -3,6 +3,22 @@
 ## [Unreleased]
 
 ### Added
+- **Prepare experiment worker** — новый хендлер `PrepareExperimentHandler` для
+  `lidar.task.prepare_experiment`. Делает поканальный вычет фона и обрезку профилей
+  по высоте:
+  - **Вычет фона**: `background_type: "file"` — поканальное вычитание фонового профиля;
+    `background_type: "mean"` — вычет среднего арифметического хвоста профиля
+    начиная с расстояния `background_from` (в метрах).
+  - **Обрезка**: профили обрезаются до расстояния `trim_from` (в метрах).
+  - Результат сохраняется в таблицы `lidar.prepared_meta` + `lidar.prepared_profiles`.
+  - Payload задачи: `{"experiment_id", "background_type", "background_from", "trim_from"}`.
+- **Domain models** — `PreparedMeta` и `PreparedProfile` для обработки профилей.
+- **sqlc queries** — `CreatePreparedMeta`, `GetPreparedMetaByExperimentID`,
+  `CreatePreparedProfile`, `ListPreparedProfilesByMetaID`.
+- **Port interfaces** — `PreparedMetaRepository`, `PreparedProfileRepository`.
+- **Postgres repositories** — реализация prepared-репозиториев.
+- **Tests** (6 тестов) — `processProfile` core logic: background subtraction (file/mean),
+  shorter background padding, tail mean out of range, no background, invalid bin width.
 - **`subject` in `POST /api/v1/experiments/task`** — subject is now an explicit
   required field `"subject"` in the JSON request. Previously it was hardcoded to
   `lidar.task.process_experiment`, now any subject can be specified.
@@ -27,6 +43,8 @@
   instead of `queue, taskStatusRepo`.
 - **`NewTaskRecord`** — signature changed: `experimentID` parameter removed,
   three parameters remain: `id, subject, taskParams`.
+- **`ParseExperimentHandler`** — обновлён для работы с новым форматом сообщений
+  от `CreateTaskUseCase` (JSON вместо raw UUID).
 
 ## [Unreleased] (previous)
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -55,13 +56,21 @@ func (h *ParseExperimentHandler) Subject() ports.Subject {
 }
 
 func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error {
-	expID := string(data)
-	log.Printf("parse_experiment: processing experiment %s", expID)
+	// Parse the NATS message produced by CreateTaskUseCase.
+	var msg struct {
+		TaskID  string          `json:"task_id"`
+		Payload json.RawMessage `json:"payload"`
+	}
+	if err := json.Unmarshal(data, &msg); err != nil {
+		return fmt.Errorf("parse message: %w", err)
+	}
 
-	expUUID, err := uuid.Parse(expID)
+	expUUID, err := uuid.Parse(msg.TaskID)
 	if err != nil {
 		return fmt.Errorf("parse experiment id: %w", err)
 	}
+
+	log.Printf("parse_experiment: processing experiment %s", expUUID)
 
 	h.updateTaskStatus(ctx, expUUID, domain.TaskProcessing, "")
 
@@ -72,7 +81,7 @@ func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error 
 	}
 
 	if exp.StorageRefs.ExperimentDataID == nil {
-		err := fmt.Errorf("experiment %s has no archive storage reference", expID)
+		err := fmt.Errorf("experiment %s has no archive storage reference", expUUID)
 		h.failTask(ctx, expUUID, err)
 		return err
 	}
@@ -125,7 +134,7 @@ func (h *ParseExperimentHandler) Handle(ctx context.Context, data []byte) error 
 	}
 
 	h.updateTaskStatus(ctx, expUUID, domain.TaskCompleted, "")
-	log.Printf("parse_experiment: experiment %s done", expID)
+	log.Printf("parse_experiment: experiment %s done", expUUID)
 	return nil
 }
 

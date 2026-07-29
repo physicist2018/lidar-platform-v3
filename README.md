@@ -14,15 +14,17 @@ HTTP API (cmd/lidar)
   └── GET    /health                     — health check (no auth)
 
 NATS JetStream — async task queue
-  ├── lidar.task.parse_experiment   — parse uploaded archive
-  ├── lidar.task.prepare_experiment  — background correction (planned)
+  ├── lidar.task.parse_experiment    — parse uploaded archive
+  ├── lidar.task.prepare_experiment   — background correction
   └── lidar.task.process_experiment  — signal processing (planned)
 
 Worker (cmd/worker)
-  └── ParseExperimentHandler — downloads archive, creates LicelFile + LicelProfile records
+  ├── ParseExperimentHandler   — downloads archive, creates LicelFile + LicelProfile records
+  └── PrepareExperimentHandler — background removal and profile trimming
 
 PostgreSQL — domain storage
-  └── lidar schema: experiments, licelfiles, licel_profiles, task_statuses, ...
+  ├── experiments, licelfiles, licel_profiles, task_statuses
+  └── prepared_meta, prepared_profiles — processed data
 ```
 
 ## Authentication
@@ -99,7 +101,7 @@ docs/
 
 ## Tests
 
-Проект содержит **62 теста**, покрывающих ключевые компоненты.
+Проект содержит **68 тестов**, покрывающих ключевые компоненты.
 
 ### Как запустить
 
@@ -132,6 +134,7 @@ TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/main_db?search_path=lida
 | `application/create_task_test.go` | 4 | CreateTaskUseCase: пустой Subject → error, пустой TaskType → error, успех (создание TaskRecord + публикация в NATS) |
 | `application/get_task_status_test.go` | 3 | GetTaskStatusUseCase: найдено → response, не найдено → error, with params (failed + error message + JSON params) |
 | `repository/task_status_repo_test.go` | 7 | TaskStatusRepository (реальный PostgreSQL через testcontainers): Create + FindByID; Create с experiment_id; дубликат ID → error; UpdateStatus (processing → completed + started_at/finished_at); UpdateStatus failed + error_message; FindByID not found → ErrObjectNotFound; FindAll |
+| `worker/prepare_experiment_test.go` | 6 | processProfile core logic: background subtraction file/mean, shorter background, tail mean out of range, no background, invalid bin width |
 
 ## Dependencies
 
