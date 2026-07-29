@@ -50,7 +50,7 @@ func NewNatsMessageQueue(cfg Config) (*NatsMessageQueue, error) {
 		Name:       streamName,
 		Subjects:   []string{"lidar.task.>"},
 		Storage:    jetstream.FileStorage,
-		Duplicates: 2 * time.Minute,
+		Duplicates: 1 * time.Hour,
 	})
 	if err != nil {
 		// It's fine if the stream already exists — update it instead.
@@ -58,7 +58,7 @@ func NewNatsMessageQueue(cfg Config) (*NatsMessageQueue, error) {
 			Name:       streamName,
 			Subjects:   []string{"lidar.task.>"},
 			Storage:    jetstream.FileStorage,
-			Duplicates: 2 * time.Minute,
+			Duplicates: 1 * time.Hour,
 		})
 		if err != nil {
 			conn.Close()
