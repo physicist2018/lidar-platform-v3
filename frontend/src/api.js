@@ -100,3 +100,32 @@ export function createTask(body) {
 export function getTaskStatus(taskID) {
   return request("GET", `/api/v1/tasks/${taskID}`);
 }
+
+// ---------------------------------------------------------------------------
+// Prepared Profiles API
+// ---------------------------------------------------------------------------
+
+export function listPreparedExperiments() {
+  return request("GET", "/api/v1/prepared-profiles/experiments");
+}
+
+export function listPreparedFilters({ experimentId, wavelength, polarization } = {}) {
+  return request("GET", "/api/v1/prepared-profiles/filters", {
+    params: {
+      experiment_id: experimentId,
+      wavelength,
+      polarization,
+    },
+  });
+}
+
+export function getPreparedProfiles({ experimentId, wavelength, polarization, deviceId } = {}) {
+  return request("GET", "/api/v1/prepared-profiles", {
+    params: {
+      experiment_id: experimentId,
+      wavelength,
+      polarization,
+      device_id: deviceId,
+    },
+  });
+}

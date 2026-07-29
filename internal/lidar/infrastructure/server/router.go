@@ -60,6 +60,22 @@ func NewRouter(expHandler *ExperimentHandler, taskHandler *TaskHandler, prepared
 			}
 			preparedHandler.HandleListPreparedProfiles(w, r)
 		})
+
+		r.Get("/prepared-profiles/experiments", func(w http.ResponseWriter, r *http.Request) {
+			if preparedHandler == nil {
+				RespondWithError(w, http.StatusNotImplemented, "prepared profiles not available")
+				return
+			}
+			preparedHandler.HandleListExperiments(w, r)
+		})
+
+		r.Get("/prepared-profiles/filters", func(w http.ResponseWriter, r *http.Request) {
+			if preparedHandler == nil {
+				RespondWithError(w, http.StatusNotImplemented, "prepared profiles not available")
+				return
+			}
+			preparedHandler.HandleListFilters(w, r)
+		})
 	})
 
 	return r

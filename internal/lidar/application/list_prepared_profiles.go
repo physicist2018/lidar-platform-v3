@@ -30,8 +30,14 @@ type ListPreparedProfilesResponse struct {
 	Count    int                   `json:"count"`
 }
 
-// ListPreparedProfilesUseCase retrieves prepared profiles filtered by experiment
-// and optionally by wavelength, polarization, and device_id.
+// PreparedFiltersResponse contains available filter values for the dropdowns.
+type PreparedFiltersResponse struct {
+	Wavelengths   []float32 `json:"wavelengths"`
+	Polarizations []string  `json:"polarizations"`
+	DeviceIDs     []string  `json:"device_ids"`
+}
+
+// ListPreparedProfilesUseCase retrieves prepared profiles and filter metadata.
 type ListPreparedProfilesUseCase struct {
 	repo ports.PreparedProfileRepository
 }
@@ -42,7 +48,6 @@ func NewListPreparedProfilesUseCase(repo ports.PreparedProfileRepository) *ListP
 }
 
 // Execute retrieves prepared profiles with optional filters.
-// Parameters set to nil mean "no filter".
 func (uc *ListPreparedProfilesUseCase) Execute(
 	ctx context.Context,
 	experimentID uuid.UUID,
@@ -66,6 +71,45 @@ func (uc *ListPreparedProfilesUseCase) Execute(
 	return &ListPreparedProfilesResponse{
 		Profiles: items,
 		Count:    len(items),
+	}, nil
+}
+
+// ListExperiments returns experiment IDs that have prepared data.
+func (uc *ListPreparedProfilesUseCase) ListExperiments(ctx context.Context) ([]uuid.UUID, error) {
+	return uc.repo.FindExperiments(ctx)
+}
+
+// ListFilters returns available filter values for the given experiment.
+// wavelength, polarization, deviceID are optional filters for narrowing down.
+func (uc *ListPreparedProfilesUseCase) ListFilters(
+	ctx context.Context,
+	experimentID uuid.UUID,
+	wavelength *float32,
+	polarization *string,
+) (*PreparedFiltersResponse, error) {
+	if experimentID == uuid.Nil {
+		return nil, fmt.Errorf("experiment_id is required")
+	}
+
+	wavelengths, err := uc.repo.FindWavelengths(ctx, experimentID)
+	if err != nil {
+		return nil, fmt.Errorf("find wavelengths: %w", err)
+	}
+
+	polarizations, err := uc.repo.FindPolarizations(ctx, experimentID, wavelength)
+	if err != nil {
+		return nil, fmt.Errorf("find polarizations: %w", err)
+	}
+
+	deviceIDs, err := uc.repo.FindDeviceIDs(ctx, experimentID, wavelength, polarization)
+	if err != nil {
+		return nil, fmt.Errorf("find device ids: %w", err)
+	}
+
+	return &PreparedFiltersResponse{
+		Wavelengths:   wavelengths,
+		Polarizations: polarizations,
+		DeviceIDs:     deviceIDs,
 	}, nil
 }
 

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -13,6 +14,8 @@ import (
 // ListPreparedProfilesUseCase is the interface for listing prepared profiles.
 type ListPreparedProfilesUseCase interface {
 	Execute(ctx context.Context, experimentID uuid.UUID, wavelength *float32, polarization, deviceID *string) (*application.ListPreparedProfilesResponse, error)
+	ListExperiments(ctx context.Context) ([]uuid.UUID, error)
+	ListFilters(ctx context.Context, experimentID uuid.UUID, wavelength *float32, polarization *string) (*application.PreparedFiltersResponse, error)
 }
 
 // PreparedProfilesHandler handles HTTP requests for prepared profiles.
@@ -29,39 +32,15 @@ func NewPreparedProfilesHandler(listUC ListPreparedProfilesUseCase) *PreparedPro
 func (h *PreparedProfilesHandler) HandleListPreparedProfiles(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
-	// Required: experiment_id
-	expIDStr := q.Get("experiment_id")
-	if expIDStr == "" {
-		RespondWithError(w, http.StatusBadRequest, "experiment_id is required")
-		return
-	}
-	expID, err := uuid.Parse(expIDStr)
+	expID, err := parseExperimentID(q)
 	if err != nil {
-		RespondWithError(w, http.StatusBadRequest, "invalid experiment_id")
+		RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Optional filters
-	var wavelength *float32
-	if v := q.Get("wavelength"); v != "" {
-		f, err := strconv.ParseFloat(v, 32)
-		if err != nil {
-			RespondWithError(w, http.StatusBadRequest, "invalid wavelength")
-			return
-		}
-		f32 := float32(f)
-		wavelength = &f32
-	}
-
-	var polarization *string
-	if v := q.Get("polarization"); v != "" {
-		polarization = &v
-	}
-
-	var deviceID *string
-	if v := q.Get("device_id"); v != "" {
-		deviceID = &v
-	}
+	wavelength := parseOptionalFloat(q, "wavelength")
+	polarization := parseOptionalString(q, "polarization")
+	deviceID := parseOptionalString(q, "device_id")
 
 	result, err := h.listUC.Execute(r.Context(), expID, wavelength, polarization, deviceID)
 	if err != nil {
@@ -70,4 +49,86 @@ func (h *PreparedProfilesHandler) HandleListPreparedProfiles(w http.ResponseWrit
 	}
 
 	RespondWithJSON(w, http.StatusOK, result)
+}
+
+// HandleListExperiments handles GET /api/v1/prepared-profiles/experiments.
+func (h *PreparedProfilesHandler) HandleListExperiments(w http.ResponseWriter, r *http.Request) {
+	exps, err := h.listUC.ListExperiments(r.Context())
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	items := make([]map[string]uuid.UUID, len(exps))
+	for i, e := range exps {
+		items[i] = map[string]uuid.UUID{"experiment_id": e}
+	}
+
+	RespondWithJSON(w, http.StatusOK, items)
+}
+
+// HandleListFilters handles GET /api/v1/prepared-profiles/filters?experiment_id=...
+func (h *PreparedProfilesHandler) HandleListFilters(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+
+	expID, err := parseExperimentID(q)
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	wavelength := parseOptionalFloat(q, "wavelength")
+	polarization := parseOptionalString(q, "polarization")
+
+	result, err := h.listUC.ListFilters(r.Context(), expID, wavelength, polarization)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, result)
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+func parseExperimentID(q map[string][]string) (uuid.UUID, error) {
+	s := getQueryParam(q, "experiment_id")
+	if s == "" {
+		return uuid.Nil, fmt.Errorf("experiment_id is required")
+	}
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("invalid experiment_id")
+	}
+	return id, nil
+}
+
+func parseOptionalFloat(q map[string][]string, key string) *float32 {
+	s := getQueryParam(q, key)
+	if s == "" {
+		return nil
+	}
+	f, err := strconv.ParseFloat(s, 32)
+	if err != nil {
+		return nil
+	}
+	v := float32(f)
+	return &v
+}
+
+func parseOptionalString(q map[string][]string, key string) *string {
+	s := getQueryParam(q, key)
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func getQueryParam(q map[string][]string, key string) string {
+	if vals, ok := q[key]; ok && len(vals) > 0 {
+		return vals[0]
+	}
+	return ""
 }

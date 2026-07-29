@@ -22,6 +22,40 @@ SELECT * FROM lidar.prepared_profiles
 WHERE prepared_meta_id = $1 AND deleted_at IS NULL
 ORDER BY created_at;
 
+-- name: ListPreparedExperiments :many
+SELECT DISTINCT pm.experiment_id
+FROM lidar.prepared_profiles pp
+JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+WHERE pp.deleted_at IS NULL
+ORDER BY pm.experiment_id;
+
+-- name: ListPreparedProfileWavelengths :many
+SELECT DISTINCT lp.wavelength
+FROM lidar.prepared_profiles pp
+JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+JOIN lidar.licel_profiles lp ON lp.id = pp.licel_profile_id
+WHERE pm.experiment_id = $1 AND pp.deleted_at IS NULL
+ORDER BY lp.wavelength;
+
+-- name: ListPreparedProfilePolarizations :many
+SELECT DISTINCT lp.polarization
+FROM lidar.prepared_profiles pp
+JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+JOIN lidar.licel_profiles lp ON lp.id = pp.licel_profile_id
+WHERE pm.experiment_id = sqlc.arg('experiment_id') AND pp.deleted_at IS NULL
+  AND (sqlc.narg('wavelength')::real IS NULL OR lp.wavelength = sqlc.narg('wavelength'))
+ORDER BY lp.polarization;
+
+-- name: ListPreparedProfileDeviceIDs :many
+SELECT DISTINCT lp.device_id
+FROM lidar.prepared_profiles pp
+JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+JOIN lidar.licel_profiles lp ON lp.id = pp.licel_profile_id
+WHERE pm.experiment_id = sqlc.arg('experiment_id') AND pp.deleted_at IS NULL
+  AND (sqlc.narg('wavelength')::real IS NULL OR lp.wavelength = sqlc.narg('wavelength'))
+  AND (sqlc.narg('polarization')::text IS NULL OR lp.polarization = sqlc.narg('polarization'))
+ORDER BY lp.device_id;
+
 -- name: ListPreparedProfilesByExperiment :many
 SELECT
     pp.id,
@@ -39,7 +73,7 @@ JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
 JOIN lidar.licel_profiles lp ON lp.id = pp.licel_profile_id
 WHERE pm.experiment_id = sqlc.arg('experiment_id')
   AND pp.deleted_at IS NULL
-  AND (sqlc.narg('wavelength')::real IS NULL OR lp.wavelength = sqlc.arg('wavelength'))
+  AND (sqlc.narg('wavelength')::real IS NULL OR lp.wavelength = sqlc.narg('wavelength'))
   AND (sqlc.narg('polarization')::text IS NULL OR lp.polarization = sqlc.narg('polarization'))
   AND (sqlc.narg('device_id')::text IS NULL OR lp.device_id = sqlc.narg('device_id'))
 ORDER BY lp.wavelength, lp.polarization, lp.device_id;

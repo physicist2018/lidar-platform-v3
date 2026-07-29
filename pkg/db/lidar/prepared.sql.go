@@ -95,6 +95,147 @@ func (q *Queries) GetPreparedMetaByExperimentID(ctx context.Context, experimentI
 	return i, err
 }
 
+const listPreparedExperiments = `-- name: ListPreparedExperiments :many
+SELECT DISTINCT pm.experiment_id
+FROM lidar.prepared_profiles pp
+JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+WHERE pp.deleted_at IS NULL
+ORDER BY pm.experiment_id
+`
+
+func (q *Queries) ListPreparedExperiments(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.QueryContext(ctx, listPreparedExperiments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var experiment_id uuid.UUID
+		if err := rows.Scan(&experiment_id); err != nil {
+			return nil, err
+		}
+		items = append(items, experiment_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPreparedProfileDeviceIDs = `-- name: ListPreparedProfileDeviceIDs :many
+SELECT DISTINCT lp.device_id
+FROM lidar.prepared_profiles pp
+JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+JOIN lidar.licel_profiles lp ON lp.id = pp.licel_profile_id
+WHERE pm.experiment_id = $1 AND pp.deleted_at IS NULL
+  AND ($2::real IS NULL OR lp.wavelength = $2)
+  AND ($3::text IS NULL OR lp.polarization = $3)
+ORDER BY lp.device_id
+`
+
+type ListPreparedProfileDeviceIDsParams struct {
+	ExperimentID uuid.UUID       `json:"experiment_id"`
+	Wavelength   sql.NullFloat64 `json:"wavelength"`
+	Polarization sql.NullString  `json:"polarization"`
+}
+
+func (q *Queries) ListPreparedProfileDeviceIDs(ctx context.Context, arg ListPreparedProfileDeviceIDsParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listPreparedProfileDeviceIDs, arg.ExperimentID, arg.Wavelength, arg.Polarization)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var device_id string
+		if err := rows.Scan(&device_id); err != nil {
+			return nil, err
+		}
+		items = append(items, device_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPreparedProfilePolarizations = `-- name: ListPreparedProfilePolarizations :many
+SELECT DISTINCT lp.polarization
+FROM lidar.prepared_profiles pp
+JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+JOIN lidar.licel_profiles lp ON lp.id = pp.licel_profile_id
+WHERE pm.experiment_id = $1 AND pp.deleted_at IS NULL
+  AND ($2::real IS NULL OR lp.wavelength = $2)
+ORDER BY lp.polarization
+`
+
+type ListPreparedProfilePolarizationsParams struct {
+	ExperimentID uuid.UUID       `json:"experiment_id"`
+	Wavelength   sql.NullFloat64 `json:"wavelength"`
+}
+
+func (q *Queries) ListPreparedProfilePolarizations(ctx context.Context, arg ListPreparedProfilePolarizationsParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listPreparedProfilePolarizations, arg.ExperimentID, arg.Wavelength)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var polarization string
+		if err := rows.Scan(&polarization); err != nil {
+			return nil, err
+		}
+		items = append(items, polarization)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPreparedProfileWavelengths = `-- name: ListPreparedProfileWavelengths :many
+SELECT DISTINCT lp.wavelength
+FROM lidar.prepared_profiles pp
+JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+JOIN lidar.licel_profiles lp ON lp.id = pp.licel_profile_id
+WHERE pm.experiment_id = $1 AND pp.deleted_at IS NULL
+ORDER BY lp.wavelength
+`
+
+func (q *Queries) ListPreparedProfileWavelengths(ctx context.Context, experimentID uuid.UUID) ([]float32, error) {
+	rows, err := q.db.QueryContext(ctx, listPreparedProfileWavelengths, experimentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []float32
+	for rows.Next() {
+		var wavelength float32
+		if err := rows.Scan(&wavelength); err != nil {
+			return nil, err
+		}
+		items = append(items, wavelength)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPreparedProfilesByExperiment = `-- name: ListPreparedProfilesByExperiment :many
 SELECT
     pp.id,
