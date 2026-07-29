@@ -1,23 +1,33 @@
 import { defineConfig } from "vite";
 
+// In development, Vite proxies all API calls through nginx (https://localhost).
+// Nginx handles SSL termination and routes to the appropriate backend service.
+// The FRONTEND_URL (verify redirect) also points to the same host.
+
 export default defineConfig({
   server: {
     proxy: {
-      "/api": {
-        target: "http://localhost:8091",
-        changeOrigin: true,
-      },
+      // Identity routes → nginx → identity:8090
       "/login": {
-        target: "http://localhost:8090",
+        target: "https://localhost",
         changeOrigin: true,
+        secure: false,
       },
       "/register": {
-        target: "http://localhost:8090",
+        target: "https://localhost",
         changeOrigin: true,
+        secure: false,
       },
       "/verify": {
-        target: "http://localhost:8090",
+        target: "https://localhost",
         changeOrigin: true,
+        secure: false,
+      },
+      // Lidar API → nginx → lidar:8091
+      "/api": {
+        target: "https://localhost",
+        changeOrigin: true,
+        secure: false,
       },
     },
   },
