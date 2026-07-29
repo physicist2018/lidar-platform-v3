@@ -39,6 +39,14 @@
   if empty.
 - **Universal task creation** — `CreateExperimentUseCase` now creates tasks through
   `CreateTaskUseCase` instead of directly.
+- **Prepared profiles API** — три новых эндпоинта для доступа к обработанным профилям:
+  - `GET /api/v1/prepared-profiles/experiments` — список экспериментов с prepared данными
+  - `GET /api/v1/prepared-profiles/filters?experiment_id=X` — доступные wavelength,
+    polarization, device_id для каскадных селектов
+  - `GET /api/v1/prepared-profiles?experiment_id=X&wavelength=...` — данные профилей с `data`
+- **Страница `/prepared` во фронтенде** — просмотр prepared профилей с интерактивными
+  графиками Plotly (heatmap, profile overlay, profile average). Каскадные селекты:
+  эксперимент → длина волны → поляризация → device ID. Plotly установлен через npm.
 
 ### Changed
 - **`CreateTaskUseCase`** — теперь универсальный use case: `subject` и опциональный

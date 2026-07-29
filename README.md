@@ -18,11 +18,14 @@ Nginx (SSL termination + routing)
   └── /adminer/*                 → adminer:8080
 
 HTTP API (cmd/lidar)
-  ├── POST   /api/v1/experiments/create  — upload experiment files
-  ├── POST   /api/v1/experiments/task    — create processing task
-  ├── GET    /api/v1/experiments/list     — list experiments (with time filter)
-  ├── GET    /api/v1/tasks/{taskID}      — query async task status
-  └── GET    /health                     — health check (no auth)
+  ├── POST   /api/v1/experiments/create           — upload experiment files
+  ├── POST   /api/v1/experiments/task             — create processing task
+  ├── GET    /api/v1/experiments/list              — list experiments (with time filter)
+  ├── GET    /api/v1/tasks/{taskID}               — query async task status
+  ├── GET    /api/v1/prepared-profiles             — query processed profiles
+  ├── GET    /api/v1/prepared-profiles/experiments — list experiments with prepared data
+  ├── GET    /api/v1/prepared-profiles/filters     — available wavelength/polarization/device_id
+  └── GET    /health                              — health check (no auth)
 
 NATS JetStream — async task queue
   ├── lidar.task.parse_experiment    — parse uploaded archive
