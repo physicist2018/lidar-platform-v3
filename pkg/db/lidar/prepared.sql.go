@@ -7,6 +7,8 @@ package lidar
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -91,6 +93,88 @@ func (q *Queries) GetPreparedMetaByExperimentID(ctx context.Context, experimentI
 		&i.TrimFrom,
 	)
 	return i, err
+}
+
+const listPreparedProfilesByExperiment = `-- name: ListPreparedProfilesByExperiment :many
+SELECT
+    pp.id,
+    pp.data,
+    pp.created_at,
+    lp.wavelength,
+    lp.polarization,
+    lp.device_id,
+    lp.bin_width,
+    pm.background_type,
+    pm.background_from,
+    pm.trim_from
+FROM lidar.prepared_profiles pp
+JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+JOIN lidar.licel_profiles lp ON lp.id = pp.licel_profile_id
+WHERE pm.experiment_id = $1
+  AND pp.deleted_at IS NULL
+  AND ($2::real IS NULL OR lp.wavelength = $2)
+  AND ($3::text IS NULL OR lp.polarization = $3)
+  AND ($4::text IS NULL OR lp.device_id = $4)
+ORDER BY lp.wavelength, lp.polarization, lp.device_id
+`
+
+type ListPreparedProfilesByExperimentParams struct {
+	ExperimentID uuid.UUID       `json:"experiment_id"`
+	Wavelength   sql.NullFloat64 `json:"wavelength"`
+	Polarization sql.NullString  `json:"polarization"`
+	DeviceID     sql.NullString  `json:"device_id"`
+}
+
+type ListPreparedProfilesByExperimentRow struct {
+	ID             uuid.UUID `json:"id"`
+	Data           []float32 `json:"data"`
+	CreatedAt      time.Time `json:"created_at"`
+	Wavelength     float32   `json:"wavelength"`
+	Polarization   string    `json:"polarization"`
+	DeviceID       string    `json:"device_id"`
+	BinWidth       float32   `json:"bin_width"`
+	BackgroundType string    `json:"background_type"`
+	BackgroundFrom float32   `json:"background_from"`
+	TrimFrom       float32   `json:"trim_from"`
+}
+
+func (q *Queries) ListPreparedProfilesByExperiment(ctx context.Context, arg ListPreparedProfilesByExperimentParams) ([]ListPreparedProfilesByExperimentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPreparedProfilesByExperiment,
+		arg.ExperimentID,
+		arg.Wavelength,
+		arg.Polarization,
+		arg.DeviceID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPreparedProfilesByExperimentRow
+	for rows.Next() {
+		var i ListPreparedProfilesByExperimentRow
+		if err := rows.Scan(
+			&i.ID,
+			pq.Array(&i.Data),
+			&i.CreatedAt,
+			&i.Wavelength,
+			&i.Polarization,
+			&i.DeviceID,
+			&i.BinWidth,
+			&i.BackgroundType,
+			&i.BackgroundFrom,
+			&i.TrimFrom,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listPreparedProfilesByMetaID = `-- name: ListPreparedProfilesByMetaID :many

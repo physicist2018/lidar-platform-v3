@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 
@@ -49,6 +50,45 @@ func (r *PostgresPreparedProfileRepository) FindByMetaID(ctx context.Context, me
 }
 
 // ---------------------------------------------------------------------------
+// Query: prepared profiles with metadata
+// ---------------------------------------------------------------------------
+
+// FindByExperiment returns prepared profiles with metadata, optionally filtered.
+func (r *PostgresPreparedProfileRepository) FindByExperiment(
+	ctx context.Context,
+	experimentID uuid.UUID,
+	wavelength *float32,
+	polarization, deviceID *string,
+) ([]domain.PreparedProfileView, error) {
+	params := db.ListPreparedProfilesByExperimentParams{
+		ExperimentID: experimentID,
+		Wavelength:   toNullFloat64(wavelength),
+		Polarization: toNullStringPtr(polarization),
+		DeviceID:     toNullStringPtr(deviceID),
+	}
+	rows, err := r.q.ListPreparedProfilesByExperiment(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	views := make([]domain.PreparedProfileView, len(rows))
+	for i, row := range rows {
+		views[i] = domain.PreparedProfileView{
+			ID:             row.ID,
+			Wavelength:     row.Wavelength,
+			Polarization:   row.Polarization,
+			DeviceID:       row.DeviceID,
+			BinWidth:       row.BinWidth,
+			Data:           row.Data,
+			BackgroundType: domain.BackgroundType(row.BackgroundType),
+			BackgroundFrom: row.BackgroundFrom,
+			TrimFrom:       row.TrimFrom,
+			CreatedAt:      row.CreatedAt,
+		}
+	}
+	return views, nil
+}
+
+// ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
 
@@ -61,4 +101,22 @@ func mapPreparedProfile(u db.LidarPreparedProfile) *domain.PreparedProfile {
 		CreatedAt:      u.CreatedAt,
 		UpdatedAt:      u.UpdatedAt,
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+func toNullFloat64(v *float32) sql.NullFloat64 {
+	if v == nil {
+		return sql.NullFloat64{Valid: false}
+	}
+	return sql.NullFloat64{Float64: float64(*v), Valid: true}
+}
+
+func toNullStringPtr(v *string) sql.NullString {
+	if v == nil {
+		return sql.NullString{Valid: false}
+	}
+	return sql.NullString{String: *v, Valid: true}
 }

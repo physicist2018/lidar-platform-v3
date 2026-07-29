@@ -40,7 +40,7 @@ export function renderUpload(container) {
 
           <div class="form-group">
             <label for="bg-file">Фоновый файл (LICEL, опционально)</label>
-            <input type="file" id="bg-file" name="background" accept=".licel,.txt" />
+            <input type="file" id="bg-file" name="background" accept=".*,.txt" />
           </div>
 
           <div class="form-group">

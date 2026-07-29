@@ -8,7 +8,7 @@ import (
 )
 
 // NewRouter creates and configures the chi router for the lidar service.
-func NewRouter(expHandler *ExperimentHandler, taskHandler *TaskHandler, jwtSecret string) http.Handler {
+func NewRouter(expHandler *ExperimentHandler, taskHandler *TaskHandler, preparedHandler *PreparedProfilesHandler, jwtSecret string) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
@@ -51,6 +51,14 @@ func NewRouter(expHandler *ExperimentHandler, taskHandler *TaskHandler, jwtSecre
 				return
 			}
 			taskHandler.HandleGetTaskStatus(w, r)
+		})
+
+		r.Get("/prepared-profiles", func(w http.ResponseWriter, r *http.Request) {
+			if preparedHandler == nil {
+				RespondWithError(w, http.StatusNotImplemented, "prepared profiles not available")
+				return
+			}
+			preparedHandler.HandleListPreparedProfiles(w, r)
 		})
 	})
 

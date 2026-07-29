@@ -11,7 +11,7 @@ import (
 )
 
 func TestRouter_HealthWithoutAuth(t *testing.T) {
-	handler := NewRouter(nil, nil, testJWTSecret)
+	handler := NewRouter(nil, nil, nil, testJWTSecret)
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
@@ -26,7 +26,7 @@ func TestRouter_HealthWithoutAuth(t *testing.T) {
 }
 
 func TestRouter_APIv1WithoutAuth(t *testing.T) {
-	handler := NewRouter(nil, nil, testJWTSecret)
+	handler := NewRouter(nil, nil, nil, testJWTSecret)
 
 	tests := []struct {
 		name   string
@@ -57,7 +57,7 @@ func TestRouter_APIv1WithoutAuth(t *testing.T) {
 func TestRouter_APIv1WithValidToken(t *testing.T) {
 	token := generateTestToken(t, testJWTSecret, "user-123", time.Now().Add(time.Hour))
 
-	handler := NewRouter(nil, nil, testJWTSecret)
+	handler := NewRouter(nil, nil, nil, testJWTSecret)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/00000000-0000-0000-0000-000000000000", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -74,7 +74,7 @@ func TestRouter_APIv1WithValidToken(t *testing.T) {
 func TestRouter_APIv1WithExpiredToken(t *testing.T) {
 	token := generateTestToken(t, testJWTSecret, "user-123", time.Now().Add(-time.Hour))
 
-	handler := NewRouter(nil, nil, testJWTSecret)
+	handler := NewRouter(nil, nil, nil, testJWTSecret)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/tasks/00000000-0000-0000-0000-000000000000", nil)
 	req.Header.Set("Authorization", "Bearer "+token)

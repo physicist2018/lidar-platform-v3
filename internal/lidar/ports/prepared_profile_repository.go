@@ -15,4 +15,8 @@ type PreparedProfileRepository interface {
 
 	// FindByMetaID returns all prepared profiles for a given meta, ordered by created_at.
 	FindByMetaID(ctx context.Context, metaID uuid.UUID) ([]domain.PreparedProfile, error)
+
+	// FindByExperiment returns prepared profiles for an experiment, optionally
+	// filtered by wavelength, polarization, and device_id.
+	FindByExperiment(ctx context.Context, experimentID uuid.UUID, wavelength *float32, polarization, deviceID *string) ([]domain.PreparedProfileView, error)
 }
