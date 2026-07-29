@@ -149,6 +149,7 @@ pkg/db/lidar/          Generated sqlc Go code
 
 docs/
 ├── async-tasks.md     Guide for adding async tasks with status tracking
+├── frontend.md        Guide for extending the frontend (pages, API, routing)
 ```
 
 ## Tests
