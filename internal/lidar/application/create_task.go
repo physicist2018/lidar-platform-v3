@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,6 +44,8 @@ func NewCreateTaskUseCase(
 }
 
 // Execute validates the request and publishes the task to NATS.
+// It is idempotent: if a task with the given TaskID already exists,
+// it returns the existing task's status without publishing again.
 func (uc *CreateTaskUseCase) Execute(ctx context.Context, req *TaskRequest) (*TaskResponse, error) {
 	if req.Subject == "" {
 		return nil, fmt.Errorf("subject must not be empty")
@@ -61,6 +62,16 @@ func (uc *CreateTaskUseCase) Execute(ctx context.Context, req *TaskRequest) (*Ta
 	taskUUID, err := uuid.Parse(taskID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid task_id: %w", err)
+	}
+
+	// Idempotency check: if the task already exists, return its status
+	// without double-publishing to NATS.
+	existing, err := uc.taskStatusRepo.FindByID(ctx, taskUUID)
+	if err == nil && existing != nil {
+		return &TaskResponse{
+			TaskID: taskID,
+			Status: string(existing.Status),
+		}, nil
 	}
 
 	// Build the message body: original request + task_id.
@@ -89,7 +100,7 @@ func (uc *CreateTaskUseCase) Execute(ctx context.Context, req *TaskRequest) (*Ta
 		taskParams,
 	)
 	if err := uc.taskStatusRepo.Create(ctx, &taskRecord); err != nil {
-		log.Printf("create task status: %v", err)
+		return nil, fmt.Errorf("create task status: %w", err)
 	}
 
 	// Publish with the task_id as dedup ID to prevent duplicates.

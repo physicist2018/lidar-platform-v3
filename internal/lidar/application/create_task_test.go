@@ -37,7 +37,8 @@ func (m *mockQueue) Close() error {
 }
 
 type mockTaskStatusRepoForCreate struct {
-	createFunc func(ctx context.Context, record *domain.TaskRecord) error
+	createFunc   func(ctx context.Context, record *domain.TaskRecord) error
+	findByIDFunc func(ctx context.Context, id uuid.UUID) (*domain.TaskRecord, error)
 }
 
 func (m *mockTaskStatusRepoForCreate) Create(ctx context.Context, record *domain.TaskRecord) error {
@@ -51,8 +52,11 @@ func (m *mockTaskStatusRepoForCreate) UpdateStatus(_ context.Context, _ uuid.UUI
 	panic("mockTaskStatusRepo.UpdateStatus not implemented")
 }
 
-func (m *mockTaskStatusRepoForCreate) FindByID(_ context.Context, _ uuid.UUID) (*domain.TaskRecord, error) {
-	panic("mockTaskStatusRepo.FindByID not implemented")
+func (m *mockTaskStatusRepoForCreate) FindByID(ctx context.Context, id uuid.UUID) (*domain.TaskRecord, error) {
+	if m.findByIDFunc != nil {
+		return m.findByIDFunc(ctx, id)
+	}
+	return nil, domain.ErrObjectNotFound
 }
 
 func (m *mockTaskStatusRepoForCreate) FindAll(_ context.Context) ([]domain.TaskRecord, error) {
@@ -138,4 +142,38 @@ func TestCreateTask_Success(t *testing.T) {
 	assert.Contains(t, string(publishedData), resp.TaskID)
 	assert.Contains(t, string(publishedData), "gliding")
 	assert.Contains(t, string(publishedData), "p1")
+}
+
+func TestCreateTask_Idempotent(t *testing.T) {
+	taskID := uuid.New()
+	var publishCalled bool
+
+	queue := &mockQueue{
+		publishFunc: func(_ context.Context, _ ports.Subject, _ []byte, _ string) error {
+			publishCalled = true
+			return nil
+		},
+	}
+
+	repo := &mockTaskStatusRepoForCreate{
+		findByIDFunc: func(_ context.Context, id uuid.UUID) (*domain.TaskRecord, error) {
+			return &domain.TaskRecord{
+				ID:     id,
+				Status: domain.TaskCompleted,
+			}, nil
+		},
+	}
+
+	uc := NewCreateTaskUseCase(queue, repo)
+	resp, err := uc.Execute(context.Background(), &TaskRequest{
+		Subject:  "lidar.task.test",
+		TaskType: "test",
+		TaskID:   taskID.String(),
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, taskID.String(), resp.TaskID)
+	assert.Equal(t, "completed", resp.Status)
+	assert.False(t, publishCalled, "NATS publish should not be called for existing task")
 }
