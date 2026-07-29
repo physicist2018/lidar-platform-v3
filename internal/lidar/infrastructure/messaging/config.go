@@ -4,7 +4,7 @@ import "time"
 
 const (
 	defaultStreamName = "lidar-tasks"
-	defaultAckWait    = 5 * time.Minute
+	defaultAckWait    = 30 * time.Minute
 )
 
 // Config holds the NATS connection and JetStream settings.

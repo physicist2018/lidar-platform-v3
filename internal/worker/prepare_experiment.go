@@ -114,8 +114,14 @@ func (h *PrepareExperimentHandler) Handle(ctx context.Context, data []byte) erro
 		return err
 	}
 
+	log.Printf("prepare_experiment: found %d paired profiles for experiment %s",
+		len(pairedProfiles), expUUID)
+
 	// 5. Process each paired profile.
-	for _, pp := range pairedProfiles {
+	for i, pp := range pairedProfiles {
+		if i%100 == 0 {
+			log.Printf("prepare_experiment: progress %d/%d profiles", i, len(pairedProfiles))
+		}
 		prepared, err := h.processProfile(pp, meta, bgType, payload)
 		if err != nil {
 			h.failTask(ctx, taskUUID, fmt.Errorf("process profile %s: %w", pp.Signal.ProfileID, err))
