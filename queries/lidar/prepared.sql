@@ -65,12 +65,14 @@ SELECT
     lp.polarization,
     lp.device_id,
     lp.bin_width,
+    lf.measurement_start,
     pm.background_type,
     pm.background_from,
     pm.trim_from
 FROM lidar.prepared_profiles pp
 JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
 JOIN lidar.licel_profiles lp ON lp.id = pp.licel_profile_id
+JOIN lidar.licelfiles lf ON lf.id = lp.licelfile_id
 WHERE pm.experiment_id = sqlc.arg('experiment_id')
   AND pp.deleted_at IS NULL
   AND (sqlc.narg('wavelength')::real IS NULL OR lp.wavelength = sqlc.narg('wavelength'))

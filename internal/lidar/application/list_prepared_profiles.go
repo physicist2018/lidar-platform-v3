@@ -12,16 +12,17 @@ import (
 
 // PreparedProfileItem is a single prepared profile in the list response.
 type PreparedProfileItem struct {
-	ID             uuid.UUID `json:"id"`
-	Wavelength     float32   `json:"wavelength"`
-	Polarization   string    `json:"polarization"`
-	DeviceID       string    `json:"device_id"`
-	BinWidth       float32   `json:"bin_width"`
-	Data           []float32 `json:"data"`
-	BackgroundType string    `json:"background_type"`
-	BackgroundFrom float32   `json:"background_from"`
-	TrimFrom       float32   `json:"trim_from"`
-	CreatedAt      string    `json:"created_at"`
+	ID               uuid.UUID `json:"id"`
+	Wavelength       float32   `json:"wavelength"`
+	Polarization     string    `json:"polarization"`
+	DeviceID         string    `json:"device_id"`
+	BinWidth         float32   `json:"bin_width"`
+	Data             []float32 `json:"data"`
+	MeasurementStart string    `json:"measurement_start"`
+	BackgroundType   string    `json:"background_type"`
+	BackgroundFrom   float32   `json:"background_from"`
+	TrimFrom         float32   `json:"trim_from"`
+	CreatedAt        string    `json:"created_at"`
 }
 
 // ListPreparedProfilesResponse is the response for listing prepared profiles.
@@ -80,7 +81,6 @@ func (uc *ListPreparedProfilesUseCase) ListExperiments(ctx context.Context) ([]u
 }
 
 // ListFilters returns available filter values for the given experiment.
-// wavelength, polarization, deviceID are optional filters for narrowing down.
 func (uc *ListPreparedProfilesUseCase) ListFilters(
 	ctx context.Context,
 	experimentID uuid.UUID,
@@ -115,15 +115,16 @@ func (uc *ListPreparedProfilesUseCase) ListFilters(
 
 func mapPreparedProfileView(v domain.PreparedProfileView) PreparedProfileItem {
 	return PreparedProfileItem{
-		ID:             v.ID,
-		Wavelength:     v.Wavelength,
-		Polarization:   v.Polarization,
-		DeviceID:       v.DeviceID,
-		BinWidth:       v.BinWidth,
-		Data:           v.Data,
-		BackgroundType: string(v.BackgroundType),
-		BackgroundFrom: v.BackgroundFrom,
-		TrimFrom:       v.TrimFrom,
-		CreatedAt:      v.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:               v.ID,
+		Wavelength:       v.Wavelength,
+		Polarization:     v.Polarization,
+		DeviceID:         v.DeviceID,
+		BinWidth:         v.BinWidth,
+		Data:             v.Data,
+		MeasurementStart: v.MeasurementStart.Format("2006-01-02T15:04:05Z07:00"),
+		BackgroundType:   string(v.BackgroundType),
+		BackgroundFrom:   v.BackgroundFrom,
+		TrimFrom:         v.TrimFrom,
+		CreatedAt:        v.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }

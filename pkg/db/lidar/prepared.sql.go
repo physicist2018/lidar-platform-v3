@@ -245,12 +245,14 @@ SELECT
     lp.polarization,
     lp.device_id,
     lp.bin_width,
+    lf.measurement_start,
     pm.background_type,
     pm.background_from,
     pm.trim_from
 FROM lidar.prepared_profiles pp
 JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
 JOIN lidar.licel_profiles lp ON lp.id = pp.licel_profile_id
+JOIN lidar.licelfiles lf ON lf.id = lp.licelfile_id
 WHERE pm.experiment_id = $1
   AND pp.deleted_at IS NULL
   AND ($2::real IS NULL OR lp.wavelength = $2)
@@ -267,16 +269,17 @@ type ListPreparedProfilesByExperimentParams struct {
 }
 
 type ListPreparedProfilesByExperimentRow struct {
-	ID             uuid.UUID `json:"id"`
-	Data           []float32 `json:"data"`
-	CreatedAt      time.Time `json:"created_at"`
-	Wavelength     float32   `json:"wavelength"`
-	Polarization   string    `json:"polarization"`
-	DeviceID       string    `json:"device_id"`
-	BinWidth       float32   `json:"bin_width"`
-	BackgroundType string    `json:"background_type"`
-	BackgroundFrom float32   `json:"background_from"`
-	TrimFrom       float32   `json:"trim_from"`
+	ID               uuid.UUID `json:"id"`
+	Data             []float32 `json:"data"`
+	CreatedAt        time.Time `json:"created_at"`
+	Wavelength       float32   `json:"wavelength"`
+	Polarization     string    `json:"polarization"`
+	DeviceID         string    `json:"device_id"`
+	BinWidth         float32   `json:"bin_width"`
+	MeasurementStart time.Time `json:"measurement_start"`
+	BackgroundType   string    `json:"background_type"`
+	BackgroundFrom   float32   `json:"background_from"`
+	TrimFrom         float32   `json:"trim_from"`
 }
 
 func (q *Queries) ListPreparedProfilesByExperiment(ctx context.Context, arg ListPreparedProfilesByExperimentParams) ([]ListPreparedProfilesByExperimentRow, error) {
@@ -301,6 +304,7 @@ func (q *Queries) ListPreparedProfilesByExperiment(ctx context.Context, arg List
 			&i.Polarization,
 			&i.DeviceID,
 			&i.BinWidth,
+			&i.MeasurementStart,
 			&i.BackgroundType,
 			&i.BackgroundFrom,
 			&i.TrimFrom,

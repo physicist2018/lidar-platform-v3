@@ -104,16 +104,17 @@ func (r *PostgresPreparedProfileRepository) FindByExperiment(
 	views := make([]domain.PreparedProfileView, len(rows))
 	for i, row := range rows {
 		views[i] = domain.PreparedProfileView{
-			ID:             row.ID,
-			Wavelength:     row.Wavelength,
-			Polarization:   row.Polarization,
-			DeviceID:       row.DeviceID,
-			BinWidth:       row.BinWidth,
-			Data:           row.Data,
-			BackgroundType: domain.BackgroundType(row.BackgroundType),
-			BackgroundFrom: row.BackgroundFrom,
-			TrimFrom:       row.TrimFrom,
-			CreatedAt:      row.CreatedAt,
+			ID:               row.ID,
+			Wavelength:       row.Wavelength,
+			Polarization:     row.Polarization,
+			DeviceID:         row.DeviceID,
+			BinWidth:         row.BinWidth,
+			Data:             row.Data,
+			MeasurementStart: row.MeasurementStart,
+			BackgroundType:   domain.BackgroundType(row.BackgroundType),
+			BackgroundFrom:   row.BackgroundFrom,
+			TrimFrom:         row.TrimFrom,
+			CreatedAt:        row.CreatedAt,
 		}
 	}
 	return views, nil

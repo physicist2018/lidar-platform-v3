@@ -240,6 +240,14 @@ export function renderPrepared(container) {
 
     const transformLabel = getTransformLabel(transform);
 
+    // Sort profiles by measurement time for a meaningful timeline
+    transformed.sort((a, b) => {
+      const ta = new Date(a.measurement_start).getTime();
+      const tb = new Date(b.measurement_start).getTime();
+      if (isNaN(ta) || isNaN(tb)) return 0;
+      return ta - tb;
+    });
+
     if (chartType === "heatmap") {
       // Build matrix: rows = distance bins, cols = profiles
       // This way Plotly maps: z[binIdx][profileIdx] → x[profileIdx], y[binIdx]
@@ -255,7 +263,7 @@ export function renderPrepared(container) {
 
       const trace = {
         z: zTransposed,
-        x: transformed.map((_, i) => i),
+        x: transformed.map((p) => new Date(p.measurement_start)),
         y: yAxis,
         type: "heatmap",
         colorscale: "Viridis",
@@ -264,7 +272,7 @@ export function renderPrepared(container) {
 
       const layout = {
         title: `Heatmap (${transformed.length} profiles) — ${transformLabel}`,
-        xaxis: { title: "Profile # (time)" },
+        xaxis: { title: "Time" },
         yaxis: { title: "Distance (m)" },
         margin: { l: 60, r: 40, t: 50, b: 60 },
       };
