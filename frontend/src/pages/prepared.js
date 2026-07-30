@@ -82,7 +82,7 @@ export function renderPrepared(container) {
       const data = await listPreparedExperiments();
       expSelect.innerHTML =
         `<option value="">— выберите —</option>` +
-        data.map((e) => `<option value="${e.experiment_id}">${e.experiment_id}</option>`).join("");
+        data.map((e) => `<option value="${e.experiment_id}">${escapeHtml(e.title)} (${formatDate(e.experiment_start)} — ${formatDate(e.experiment_end)})</option>`).join("");
     } catch (err) {
       expSelect.innerHTML = `<option value="">Ошибка: ${err.message}</option>`;
     }
@@ -203,16 +203,16 @@ export function renderPrepared(container) {
   // -----------------------------------------------------------------------
 
   function applyTransform(value, binIdx, binWidth, transform) {
-    const r = binIdx * binWidth;
+    const r = binIdx * binWidth/1e6;
     switch (transform) {
       case "pr2":
         return value * r * r;
       case "log10_pr2":
         if (r <= 0 || value <= 0) return null;
-        return Math.log10(value * r * r);
+        return Math.asinh(value * r * r/1e-6);//Math.log10(value * r * r);
       case "log10_raw":
         if (value <= 0) return null;
-        return Math.log10(value);
+        return Math.asinh(value/1e-6);//Math.log10(value);
       default:
         return value;
     }
@@ -340,4 +340,26 @@ export function renderPrepared(container) {
     };
     return labels[transform] || "Signal";
   }
+}
+
+
+// ---- Helpers ----
+
+function escapeHtml(str) {
+  if (!str) return "";
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function formatDate(iso) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  return d.toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

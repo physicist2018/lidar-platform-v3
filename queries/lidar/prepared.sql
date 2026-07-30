@@ -23,11 +23,12 @@ WHERE prepared_meta_id = $1 AND deleted_at IS NULL
 ORDER BY created_at;
 
 -- name: ListPreparedExperiments :many
-SELECT DISTINCT pm.experiment_id
+SELECT DISTINCT pm.experiment_id, e.title, e.experiment_start, e.experiment_end
 FROM lidar.prepared_profiles pp
 JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+JOIN lidar.experiments e ON e.id = pm.experiment_id
 WHERE pp.deleted_at IS NULL
-ORDER BY pm.experiment_id;
+ORDER BY e.experiment_start;
 
 -- name: ListPreparedProfileWavelengths :many
 SELECT DISTINCT lp.wavelength

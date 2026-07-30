@@ -38,6 +38,14 @@ type PreparedFiltersResponse struct {
 	DeviceIDs     []string  `json:"device_ids"`
 }
 
+// PreparedExperimentResponse is one experiment in the experiments list.
+type PreparedExperimentResponse struct {
+	ID              uuid.UUID `json:"experiment_id"`
+	Title           string    `json:"title"`
+	ExperimentStart string    `json:"experiment_start"`
+	ExperimentEnd   string    `json:"experiment_end"`
+}
+
 // ListPreparedProfilesUseCase retrieves prepared profiles and filter metadata.
 type ListPreparedProfilesUseCase struct {
 	repo ports.PreparedProfileRepository
@@ -75,9 +83,23 @@ func (uc *ListPreparedProfilesUseCase) Execute(
 	}, nil
 }
 
-// ListExperiments returns experiment IDs that have prepared data.
-func (uc *ListPreparedProfilesUseCase) ListExperiments(ctx context.Context) ([]uuid.UUID, error) {
-	return uc.repo.FindExperiments(ctx)
+// ListExperiments returns experiments that have prepared data.
+func (uc *ListPreparedProfilesUseCase) ListExperiments(ctx context.Context) ([]PreparedExperimentResponse, error) {
+	items, err := uc.repo.FindExperiments(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]PreparedExperimentResponse, len(items))
+	for i, item := range items {
+		resp[i] = PreparedExperimentResponse{
+			ID:              item.ID,
+			Title:           item.Title,
+			ExperimentStart: item.ExperimentStart.Format("2006-01-02T15:04:05Z07:00"),
+			ExperimentEnd:   item.ExperimentEnd.Format("2006-01-02T15:04:05Z07:00"),
+		}
+	}
+	return resp, nil
 }
 
 // ListFilters returns available filter values for the given experiment.

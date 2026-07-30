@@ -96,26 +96,39 @@ func (q *Queries) GetPreparedMetaByExperimentID(ctx context.Context, experimentI
 }
 
 const listPreparedExperiments = `-- name: ListPreparedExperiments :many
-SELECT DISTINCT pm.experiment_id
+SELECT DISTINCT pm.experiment_id, e.title, e.experiment_start, e.experiment_end
 FROM lidar.prepared_profiles pp
 JOIN lidar.prepared_meta pm ON pm.id = pp.prepared_meta_id
+JOIN lidar.experiments e ON e.id = pm.experiment_id
 WHERE pp.deleted_at IS NULL
-ORDER BY pm.experiment_id
+ORDER BY e.experiment_start
 `
 
-func (q *Queries) ListPreparedExperiments(ctx context.Context) ([]uuid.UUID, error) {
+type ListPreparedExperimentsRow struct {
+	ExperimentID    uuid.UUID `json:"experiment_id"`
+	Title           string    `json:"title"`
+	ExperimentStart time.Time `json:"experiment_start"`
+	ExperimentEnd   time.Time `json:"experiment_end"`
+}
+
+func (q *Queries) ListPreparedExperiments(ctx context.Context) ([]ListPreparedExperimentsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listPreparedExperiments)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []uuid.UUID
+	var items []ListPreparedExperimentsRow
 	for rows.Next() {
-		var experiment_id uuid.UUID
-		if err := rows.Scan(&experiment_id); err != nil {
+		var i ListPreparedExperimentsRow
+		if err := rows.Scan(
+			&i.ExperimentID,
+			&i.Title,
+			&i.ExperimentStart,
+			&i.ExperimentEnd,
+		); err != nil {
 			return nil, err
 		}
-		items = append(items, experiment_id)
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

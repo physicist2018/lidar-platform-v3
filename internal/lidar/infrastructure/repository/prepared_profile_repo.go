@@ -53,9 +53,22 @@ func (r *PostgresPreparedProfileRepository) FindByMetaID(ctx context.Context, me
 // Filters
 // ---------------------------------------------------------------------------
 
-// FindExperiments returns distinct experiment IDs that have prepared profiles.
-func (r *PostgresPreparedProfileRepository) FindExperiments(ctx context.Context) ([]uuid.UUID, error) {
-	return r.q.ListPreparedExperiments(ctx)
+// FindExperiments returns distinct experiments that have prepared profiles.
+func (r *PostgresPreparedProfileRepository) FindExperiments(ctx context.Context) ([]domain.PreparedExperimentItem, error) {
+	rows, err := r.q.ListPreparedExperiments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]domain.PreparedExperimentItem, len(rows))
+	for i, row := range rows {
+		items[i] = domain.PreparedExperimentItem{
+			ID:              row.ExperimentID,
+			Title:           row.Title,
+			ExperimentStart: row.ExperimentStart,
+			ExperimentEnd:   row.ExperimentEnd,
+		}
+	}
+	return items, nil
 }
 
 // FindWavelengths returns distinct wavelengths for an experiment.
@@ -151,18 +164,4 @@ func toNullStringPtr(v *string) sql.NullString {
 		return sql.NullString{Valid: false}
 	}
 	return sql.NullString{String: *v, Valid: true}
-}
-
-func float32OrZero(v *float32) float32 {
-	if v == nil {
-		return 0
-	}
-	return *v
-}
-
-func stringOrEmpty(v *string) string {
-	if v == nil {
-		return ""
-	}
-	return *v
 }

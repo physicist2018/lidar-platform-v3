@@ -19,8 +19,8 @@ type PreparedProfileRepository interface {
 	// FindByExperiment returns prepared profiles with metadata, optionally filtered.
 	FindByExperiment(ctx context.Context, experimentID uuid.UUID, wavelength *float32, polarization, deviceID *string) ([]domain.PreparedProfileView, error)
 
-	// FindExperiments returns distinct experiment IDs that have prepared profiles.
-	FindExperiments(ctx context.Context) ([]uuid.UUID, error)
+	// FindExperiments returns distinct experiments that have prepared profiles.
+	FindExperiments(ctx context.Context) ([]domain.PreparedExperimentItem, error)
 
 	// FindWavelengths returns distinct wavelengths for an experiment.
 	FindWavelengths(ctx context.Context, experimentID uuid.UUID) ([]float32, error)

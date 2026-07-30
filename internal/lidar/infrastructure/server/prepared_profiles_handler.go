@@ -14,7 +14,7 @@ import (
 // ListPreparedProfilesUseCase is the interface for listing prepared profiles.
 type ListPreparedProfilesUseCase interface {
 	Execute(ctx context.Context, experimentID uuid.UUID, wavelength *float32, polarization, deviceID *string) (*application.ListPreparedProfilesResponse, error)
-	ListExperiments(ctx context.Context) ([]uuid.UUID, error)
+	ListExperiments(ctx context.Context) ([]application.PreparedExperimentResponse, error)
 	ListFilters(ctx context.Context, experimentID uuid.UUID, wavelength *float32, polarization *string) (*application.PreparedFiltersResponse, error)
 }
 
@@ -53,15 +53,10 @@ func (h *PreparedProfilesHandler) HandleListPreparedProfiles(w http.ResponseWrit
 
 // HandleListExperiments handles GET /api/v1/prepared-profiles/experiments.
 func (h *PreparedProfilesHandler) HandleListExperiments(w http.ResponseWriter, r *http.Request) {
-	exps, err := h.listUC.ListExperiments(r.Context())
+	items, err := h.listUC.ListExperiments(r.Context())
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		return
-	}
-
-	items := make([]map[string]uuid.UUID, len(exps))
-	for i, e := range exps {
-		items[i] = map[string]uuid.UUID{"experiment_id": e}
 	}
 
 	RespondWithJSON(w, http.StatusOK, items)
