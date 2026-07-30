@@ -22,6 +22,7 @@ HTTP API (cmd/lidar)
   ├── POST   /api/v1/experiments/task             — create processing task
   ├── GET    /api/v1/experiments/list              — list experiments (with time filter)
   ├── GET    /api/v1/tasks/{taskID}               — query async task status
+  ├── DELETE /api/v1/tasks/{taskID}               — delete task and results
   ├── GET    /api/v1/prepared-profiles             — query processed profiles
   ├── GET    /api/v1/prepared-profiles/experiments — list experiments with prepared data
   ├── GET    /api/v1/prepared-profiles/filters     — available wavelength/polarization/device_id
