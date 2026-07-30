@@ -42,7 +42,6 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 
 	for _, h := range w.handlers {
-		h := h
 		sub, err := w.msgQueue.Subscribe(ctx, h.Subject(), consumerName(h.Subject()),
 			func(_ context.Context, msg ports.Message) error {
 				log.Printf("worker: received task %s (dedup=%q)", msg.Subject, msg.DedupID)

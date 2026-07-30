@@ -37,7 +37,7 @@ func main() {
 	defer dbConn.Close()
 
 	var pingErr error
-	for i := 0; i < dbRetries; i++ {
+	for i := range dbRetries {
 		if pingErr = dbConn.Ping(); pingErr == nil {
 			break
 		}

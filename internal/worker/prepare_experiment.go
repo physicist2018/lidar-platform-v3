@@ -207,11 +207,8 @@ func (h *PrepareExperimentHandler) processProfile(
 	case domain.BackgroundFromFile:
 		if pp.Background != nil {
 			bgData := pp.Background.Data
-			n := len(bgData)
-			if n > len(result) {
-				n = len(result)
-			}
-			for i := 0; i < n; i++ {
+			n := min(len(bgData), len(result))
+			for i := range n {
 				result[i] = float32(signalData[i] - bgData[i])
 			}
 		}

@@ -34,7 +34,7 @@ func main() {
 	defer dbConn.Close()
 
 	var pingErr error
-	for i := 0; i < dbRetries; i++ {
+	for i := range dbRetries {
 		if pingErr = dbConn.Ping(); pingErr == nil {
 			break
 		}
@@ -97,14 +97,12 @@ func main() {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if err := w.Run(ctx); err != nil {
 			log.Fatalf("worker: %v", err)
 		}
-	}()
+	})
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
