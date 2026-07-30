@@ -4,7 +4,7 @@ import Plotly from "plotly.js-dist-min";
 export function renderPrepared(container) {
   container.innerHTML = `
     <div class="card">
-      <h1>Prepared Profiles</h1>
+      <h1>Подготовленные профили</h1>
 
       <div class="form-row">
         <div class="form-group">
@@ -26,7 +26,7 @@ export function renderPrepared(container) {
           </select>
         </div>
         <div class="form-group">
-          <label for="prep-device">Device ID</label>
+          <label for="prep-device">Тип канала</label>
           <select id="prep-device">
             <option value="">— все —</option>
           </select>
@@ -203,7 +203,7 @@ export function renderPrepared(container) {
   // -----------------------------------------------------------------------
 
   function applyTransform(value, binIdx, binWidth, transform) {
-    const r = binIdx * binWidth/1e6;
+    const r = binIdx * binWidth/1e3;
     switch (transform) {
       case "pr2":
         return value * r * r;
