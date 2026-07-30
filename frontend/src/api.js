@@ -101,6 +101,10 @@ export function getTaskStatus(taskID) {
   return request("GET", `/api/v1/tasks/${taskID}`);
 }
 
+export function deleteTask(taskID) {
+  return request("DELETE", `/api/v1/tasks/${taskID}`);
+}
+
 // ---------------------------------------------------------------------------
 // Prepared Profiles API
 // ---------------------------------------------------------------------------

@@ -27,3 +27,6 @@ SELECT * FROM lidar.task_statuses WHERE id = $1;
 
 -- name: ListTaskStatuses :many
 SELECT * FROM lidar.task_statuses ORDER BY created_at DESC;
+
+-- name: DeleteTaskStatus :exec
+DELETE FROM lidar.task_statuses WHERE id = $1;

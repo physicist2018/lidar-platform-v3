@@ -52,6 +52,15 @@ func (q *Queries) CreateTaskStatus(ctx context.Context, arg CreateTaskStatusPara
 	return i, err
 }
 
+const deleteTaskStatus = `-- name: DeleteTaskStatus :exec
+DELETE FROM lidar.task_statuses WHERE id = $1
+`
+
+func (q *Queries) DeleteTaskStatus(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteTaskStatus, id)
+	return err
+}
+
 const getTaskStatusByID = `-- name: GetTaskStatusByID :one
 SELECT id, subject, status, task_params, error_message, created_at, updated_at, started_at, finished_at FROM lidar.task_statuses WHERE id = $1
 `

@@ -80,3 +80,6 @@ WHERE pm.experiment_id = sqlc.arg('experiment_id')
   AND (sqlc.narg('polarization')::text IS NULL OR lp.polarization = sqlc.narg('polarization'))
   AND (sqlc.narg('device_id')::text IS NULL OR lp.device_id = sqlc.narg('device_id'))
 ORDER BY lp.wavelength, lp.polarization, lp.device_id;
+
+-- name: DeletePreparedMetaByExperimentID :exec
+DELETE FROM lidar.prepared_meta WHERE experiment_id = $1;

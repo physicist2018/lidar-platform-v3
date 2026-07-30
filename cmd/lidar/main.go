@@ -62,6 +62,7 @@ func main() {
 	storageObjRepo := repository.NewPostgresStorageObjectRepository(dbConn)
 	taskStatusRepo := repository.NewPostgresTaskStatusRepository(dbConn)
 	preparedProfileRepo := repository.NewPostgresPreparedProfileRepository(dbConn)
+	preparedMetaRepo := repository.NewPostgresPreparedMetaRepository(dbConn)
 
 	// ---------------------------------------------------------------
 	// 3. MinIO
@@ -94,12 +95,13 @@ func main() {
 	listExpUC := application.NewListExperimentsUseCase(experimentRepo)
 	getTaskStatusUC := application.NewGetTaskStatusUseCase(taskStatusRepo)
 	listPreparedProfilesUC := application.NewListPreparedProfilesUseCase(preparedProfileRepo)
+	deleteTaskUC := application.NewDeleteTaskUseCase(taskStatusRepo, preparedMetaRepo)
 
 	// ---------------------------------------------------------------
 	// 6. HTTP server
 	// ---------------------------------------------------------------
 	expHandler := server.NewExperimentHandler(createExpUC, listExpUC)
-	taskHandler := server.NewTaskHandler(createTaskUC, getTaskStatusUC)
+	taskHandler := server.NewTaskHandler(createTaskUC, getTaskStatusUC, deleteTaskUC)
 	preparedHandler := server.NewPreparedProfilesHandler(listPreparedProfilesUC)
 	router := server.NewRouter(expHandler, taskHandler, preparedHandler, cfg.JWTSecret)
 

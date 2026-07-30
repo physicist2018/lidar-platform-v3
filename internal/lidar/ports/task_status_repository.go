@@ -22,4 +22,7 @@ type TaskStatusRepository interface {
 
 	// FindAll returns all task records, newest first.
 	FindAll(ctx context.Context) ([]domain.TaskRecord, error)
+
+	// Delete removes a task record permanently.
+	Delete(ctx context.Context, id uuid.UUID) error
 }

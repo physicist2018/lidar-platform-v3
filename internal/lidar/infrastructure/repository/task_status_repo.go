@@ -63,13 +63,18 @@ func (r *PostgresTaskStatusRepository) FindByID(ctx context.Context, id uuid.UUI
 	return mapTaskStatus(u), nil
 }
 
-// FindByExperimentID returns all tasks for a given experiment, newest first.
+// FindAll returns all task records, newest first.
 func (r *PostgresTaskStatusRepository) FindAll(ctx context.Context) ([]domain.TaskRecord, error) {
 	rows, err := r.q.ListTaskStatuses(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return mapTaskStatuses(rows), nil
+}
+
+// Delete removes a task record permanently.
+func (r *PostgresTaskStatusRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.q.DeleteTaskStatus(ctx, id)
 }
 
 // ---------------------------------------------------------------------------

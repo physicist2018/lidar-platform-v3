@@ -15,4 +15,7 @@ type PreparedMetaRepository interface {
 
 	// FindByExperimentID returns the PreparedMeta for a given experiment.
 	FindByExperimentID(ctx context.Context, experimentID uuid.UUID) (*domain.PreparedMeta, error)
+
+	// DeleteByExperimentID permanently deletes PreparedMeta (and cascades to PreparedProfiles) for an experiment.
+	DeleteByExperimentID(ctx context.Context, experimentID uuid.UUID) error
 }

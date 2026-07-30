@@ -1,4 +1,4 @@
-import { listExperiments, createTask, getTaskStatus } from "../api.js";
+import { listExperiments, createTask, getTaskStatus, deleteTask } from "../api.js";
 import { getState, setState } from "../store.js";
 
 // Module-level interval tracker to avoid accumulating intervals.
@@ -252,12 +252,40 @@ async function renderTasks(expId) {
           <div style="display:flex;align-items:center;gap:12px;">
             <span class="badge badge-${t.status}">${statusLabel(t.status)}</span>
             ${t.error_message ? `<span class="text-muted" style="font-size:0.8rem;max-width:200px;">${escapeHtml(t.error_message)}</span>` : ""}
+            ${t.status === "completed" || t.status === "failed" ? `<button class="btn btn-danger" style="padding:4px 10px;font-size:0.8rem;" data-task-delete="${t.id}">Удалить</button>` : ""}
           </div>
         </div>
       `
     )
     .join("");
 }
+
+// Handle delete button clicks via event delegation on tasks container
+document.getElementById("content").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-task-delete]");
+  if (!btn) return;
+  const taskId = btn.dataset.taskDelete;
+  if (!confirm("Удалить задачу и все её результаты?")) return;
+
+  btn.disabled = true;
+  btn.textContent = "...";
+  try {
+    await deleteTask(taskId);
+    // Extract expId from URL hash: #/experiments/{expId}
+    const match = window.location.hash.match(/^#\/experiments\/([^\/]+)/);
+    const expId = match ? match[1] : "";
+    if (expId) {
+      // Remove from localStorage
+      const ids = getTaskIds(expId).filter(id => id !== taskId);
+      localStorage.setItem(`tasks_${expId}`, JSON.stringify(ids));
+    }
+    window.location.reload();
+  } catch (err) {
+    alert("Ошибка: " + err.message);
+    btn.disabled = false;
+    btn.textContent = "Удалить";
+  }
+});
 
 function statusLabel(status) {
   const labels = {

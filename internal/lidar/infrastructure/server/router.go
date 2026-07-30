@@ -53,6 +53,14 @@ func NewRouter(expHandler *ExperimentHandler, taskHandler *TaskHandler, prepared
 			taskHandler.HandleGetTaskStatus(w, r)
 		})
 
+		r.Delete("/tasks/{taskID}", func(w http.ResponseWriter, r *http.Request) {
+			if taskHandler == nil {
+				RespondWithError(w, http.StatusNotImplemented, "task deletion not available")
+				return
+			}
+			taskHandler.HandleDeleteTask(w, r)
+		})
+
 		r.Get("/prepared-profiles", func(w http.ResponseWriter, r *http.Request) {
 			if preparedHandler == nil {
 				RespondWithError(w, http.StatusNotImplemented, "prepared profiles not available")

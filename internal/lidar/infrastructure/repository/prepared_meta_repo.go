@@ -48,6 +48,11 @@ func (r *PostgresPreparedMetaRepository) FindByExperimentID(ctx context.Context,
 	return mapPreparedMeta(u), nil
 }
 
+// DeleteByExperimentID permanently deletes PreparedMeta (and cascades to PreparedProfiles) for an experiment.
+func (r *PostgresPreparedMetaRepository) DeleteByExperimentID(ctx context.Context, experimentID uuid.UUID) error {
+	return r.q.DeletePreparedMetaByExperimentID(ctx, experimentID)
+}
+
 // ---------------------------------------------------------------------------
 // Mapper
 // ---------------------------------------------------------------------------

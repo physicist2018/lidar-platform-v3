@@ -78,6 +78,15 @@ func (q *Queries) CreatePreparedProfile(ctx context.Context, arg CreatePreparedP
 	return i, err
 }
 
+const deletePreparedMetaByExperimentID = `-- name: DeletePreparedMetaByExperimentID :exec
+DELETE FROM lidar.prepared_meta WHERE experiment_id = $1
+`
+
+func (q *Queries) DeletePreparedMetaByExperimentID(ctx context.Context, experimentID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deletePreparedMetaByExperimentID, experimentID)
+	return err
+}
+
 const getPreparedMetaByExperimentID = `-- name: GetPreparedMetaByExperimentID :one
 SELECT id, experiment_id, background_type, background_from, trim_from FROM lidar.prepared_meta WHERE experiment_id = $1
 `

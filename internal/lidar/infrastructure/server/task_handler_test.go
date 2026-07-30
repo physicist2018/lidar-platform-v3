@@ -36,7 +36,7 @@ func newTaskHandlerWithMocks(createTaskUC *application.CreateTaskUseCase, getTas
 	if getTaskStatusFn != nil {
 		getTaskStatusUC = &mockGetTaskStatusUC{executeFunc: getTaskStatusFn}
 	}
-	return NewTaskHandler(createTaskUC, getTaskStatusUC)
+	return NewTaskHandler(createTaskUC, getTaskStatusUC, nil)
 }
 
 // ---------------------------------------------------------------------------

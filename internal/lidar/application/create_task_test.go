@@ -63,6 +63,10 @@ func (m *mockTaskStatusRepoForCreate) FindAll(_ context.Context) ([]domain.TaskR
 	panic("mockTaskStatusRepo.FindAll not implemented")
 }
 
+func (m *mockTaskStatusRepoForCreate) Delete(_ context.Context, _ uuid.UUID) error {
+	panic("mockTaskStatusRepo.Delete not implemented")
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

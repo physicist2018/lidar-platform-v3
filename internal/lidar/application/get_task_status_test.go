@@ -36,6 +36,10 @@ func (m *mockTaskStatusRepoForGet) FindAll(_ context.Context) ([]domain.TaskReco
 	panic("mockTaskStatusRepo.FindAll not implemented")
 }
 
+func (m *mockTaskStatusRepoForGet) Delete(_ context.Context, _ uuid.UUID) error {
+	panic("mockTaskStatusRepo.Delete not implemented")
+}
+
 func TestGetTaskStatus_Found(t *testing.T) {
 	taskID := uuid.New()
 	now := time.Now()
