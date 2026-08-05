@@ -10,16 +10,21 @@ import (
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/ports"
 )
 
-const tokenTTL = 24 * time.Hour
+const defaultAccessTTL = time.Hour
 
 // JWTTokenService implements ports.TokenService using HS256 JWTs.
 type JWTTokenService struct {
-	secret []byte
+	secret    []byte
+	accessTTL time.Duration
 }
 
 // NewJWTTokenService creates a new JWTTokenService.
-func NewJWTTokenService(secret string) *JWTTokenService {
-	return &JWTTokenService{secret: []byte(secret)}
+// If accessTTL is non-positive, a default of one hour is used.
+func NewJWTTokenService(secret string, accessTTL time.Duration) *JWTTokenService {
+	if accessTTL <= 0 {
+		accessTTL = defaultAccessTTL
+	}
+	return &JWTTokenService{secret: []byte(secret), accessTTL: accessTTL}
 }
 
 type claims struct {
@@ -34,7 +39,7 @@ func (s *JWTTokenService) GenerateToken(_ context.Context, userID string) (strin
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(tokenTTL)),
+			ExpiresAt: jwt.NewNumericDate(now.Add(s.accessTTL)),
 		},
 	}
 

@@ -76,12 +76,20 @@ export function initRouter() {
   render();
 }
 
+import { logout } from "./api.js";
+
 // Logout handler
 document.addEventListener("click", (e) => {
   const link = e.target.closest("[data-action='logout']");
   if (link) {
     e.preventDefault();
+    // Best-effort server-side revoke of the refresh token.
+    const refreshToken = localStorage.getItem("refresh_token");
+    if (refreshToken) {
+      logout(refreshToken);
+    }
     localStorage.removeItem("token");
+    localStorage.removeItem("refresh_token");
     navigate("/login");
   }
 });

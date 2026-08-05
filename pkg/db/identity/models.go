@@ -11,6 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+type IdentityRefreshToken struct {
+	ID        uuid.UUID      `json:"id"`
+	UserID    uuid.UUID      `json:"user_id"`
+	TokenHash string         `json:"token_hash"`
+	ExpiresAt time.Time      `json:"expires_at"`
+	RevokedAt sql.NullTime   `json:"revoked_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	UserAgent sql.NullString `json:"user_agent"`
+	Ip        sql.NullString `json:"ip"`
+}
+
 type IdentityUser struct {
 	ID                uuid.UUID      `json:"id"`
 	Email             string         `json:"email"`

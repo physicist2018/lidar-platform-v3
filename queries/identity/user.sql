@@ -9,6 +9,9 @@ SELECT * FROM identity.users WHERE email = $1;
 -- name: FindByVerificationToken :one
 SELECT * FROM identity.users WHERE verification_token = $1::text AND token_expires_at > NOW();
 
+-- name: FindUserByID :one
+SELECT * FROM identity.users WHERE id = $1;
+
 -- name: UpdateUserStatus :one
 UPDATE identity.users
 SET status = $2, verification_token = NULL, token_expires_at = NULL, updated_at = NOW()

@@ -36,7 +36,7 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.uc.Execute(r.Context(), req.Email, req.Password)
+	result, err := h.uc.Execute(r.Context(), req.Email, req.Password, r.UserAgent(), clientIP(r))
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidEmail):

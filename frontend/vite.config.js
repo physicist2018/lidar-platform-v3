@@ -23,6 +23,16 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      "/refresh": {
+        target: "https://localhost",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/logout": {
+        target: "https://localhost",
+        changeOrigin: true,
+        secure: false,
+      },
       // Lidar API → nginx → lidar:8091
       "/api": {
         target: "https://localhost",

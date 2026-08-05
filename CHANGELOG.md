@@ -3,6 +3,39 @@
 ## [Unreleased]
 
 ### Added
+- **Refresh token логика в identity** — двухтокенная модель авторизации:
+  - **Access token** — JWT с TTL по умолчанию **1 час** (env `ACCESS_TOKEN_TTL`).
+  - **Refresh token** — opaque-токен с TTL по умолчанию **30 дней** (env `REFRESH_TOKEN_TTL`),
+    хранится **хэшированным (SHA-256)** в новой таблице `identity.refresh_tokens`
+    (миграция `002_create_refresh_tokens.sql`).
+  - **`POST /refresh`** — обмен refresh-токена на новую пару; каждый refresh **ротирует**
+    токен (старый отзывается, выдаётся новый).
+  - **Детекция повторного использования** — использование уже отозванного refresh-токена
+    расценивается как кража: отзываются **все** refresh-токены пользователя.
+  - **`POST /logout`** — отзыв refresh-токена (идемпотентный).
+  - **`POST /login`** теперь возвращает `{ token, refresh_token, expires_in }`.
+  - При выдаче refresh-токена сохраняются `user_agent` и `ip` для аудита.
+  - Фронтенд: silent refresh — при `401` выполняется single-flight `POST /refresh`
+    с повторной попыткой запроса; только при неудаче — очистка сессии и редирект на логин.
+  - `scripts/auth.sh`: новые команды `refresh` и `refresh-token`; при логине
+    сохраняется и refresh-токен.
+- **Тесты identity** (13 тестов): домен refresh-токенов (генерация, хэш, expiry, revoke),
+  `RefreshUseCase` (успех с ротацией, неизвестный/отозванный/истёкший токен,
+  disabled-пользователь, orphan-токен), `LogoutUseCase` (успех, идемпотентность).
+
+### Changed
+- **`JWTTokenService`** — конструктор принимает TTL access-токена
+  (`NewJWTTokenService(secret, accessTTL)`); дефолт 1 час вместо 24 часов.
+- **`LoginUseCase`** — выдаёт refresh-токен; `Execute` принимает `userAgent` и `ip`.
+- **`UserRepository`** — добавлен метод `FindByID`.
+
+### Removed
+- **`LoginResult`** — заменён на общий `TokenPair` (`token`, `refresh_token`, `expires_in`).
+
+### Fixed
+- _(нет)_
+
+### Added
 - **Фронтенд SPA** — одностраничное приложение на Vite + vanilla JS:
   - `/login` — форма входа (JWT)
   - `/register` — регистрация с валидацией

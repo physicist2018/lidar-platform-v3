@@ -51,6 +51,22 @@ func (r *PostgresUserRepository) FindByEmail(ctx context.Context, email string) 
 	return mapUser(u), nil
 }
 
+// FindByID looks up a user by ID.
+func (r *PostgresUserRepository) FindByID(ctx context.Context, id string) (*domain.User, error) {
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return nil, err
+	}
+	u, err := r.q.FindUserByID(ctx, uid)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return mapUser(u), nil
+}
+
 // FindByVerificationToken looks up a user by their verification token.
 // The underlying SQL query also verifies the token is not expired.
 func (r *PostgresUserRepository) FindByVerificationToken(ctx context.Context, token string) (*domain.User, error) {

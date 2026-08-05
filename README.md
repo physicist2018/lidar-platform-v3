@@ -48,21 +48,50 @@ All `/api/v1/*` endpoints require a Bearer JWT issued by the identity service.
 
 1. **Register** via identity service: `POST /register`
 2. **Verify** account (email link or manual via psql)
-3. **Login** to get a token: `POST /login`
-4. **Use token** in requests to lidar API:
+3. **Login** to get a token pair: `POST /login`
+4. **Use access token** in requests to lidar API:
 
 ```bash
 curl -H 'Authorization: Bearer <TOKEN>' http://localhost:8091/api/v1/tasks/<taskID>
 ```
 
-The helper script `scripts/auth.sh` automates registration and login:
+### Token pair (access + refresh)
+
+`POST /login` and `POST /refresh` return a token pair:
+
+```json
+{ "token": "<jwt>", "refresh_token": "<opaque>", "expires_in": 3600 }
+```
+
+- **Access token** — short-lived JWT (default **1h**, env `ACCESS_TOKEN_TTL`); sent as
+  `Authorization: Bearer` and validated by the lidar service.
+- **Refresh token** — long-lived opaque token (default **30d**, env `REFRESH_TOKEN_TTL`);
+  stored **hashed (SHA-256)** in `identity.refresh_tokens` and used only to obtain a new
+  pair. Each refresh **rotates** the token (the old one is revoked). Reuse of an already
+  revoked token is treated as theft and revokes all of the user's refresh tokens.
+
+Endpoints:
+
+| Method | Path | Body | Description |
+|--------|------|------|-------------|
+| `POST` | `/refresh` | `{ "refresh_token": "..." }` | Rotate refresh token, return new pair |
+| `POST` | `/logout` | `{ "refresh_token": "..." }` | Revoke the refresh token (idempotent) |
+
+The frontend refreshes silently: on a `401` it performs a single-flight `POST /refresh`
+and retries the request once; only if refresh fails it clears the session and redirects
+to the login page.
+
+The helper script `scripts/auth.sh` automates registration, login and refresh:
 
 ```bash
 # Register + login
 IDENTITY_URL=http://localhost:8090 ./scripts/auth.sh full user@example.com mypassword
 
-# Show saved token
+# Show saved access token
 ./scripts/auth.sh token
+
+# Refresh the token pair
+./scripts/auth.sh refresh
 ```
 
 Both identity and lidar services must share the same `JWT_SECRET` environment variable.

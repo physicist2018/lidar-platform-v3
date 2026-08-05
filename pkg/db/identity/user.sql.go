@@ -88,6 +88,26 @@ func (q *Queries) FindByVerificationToken(ctx context.Context, dollar_1 string) 
 	return i, err
 }
 
+const findUserByID = `-- name: FindUserByID :one
+SELECT id, email, password_hash, status, verification_token, token_expires_at, created_at, updated_at FROM identity.users WHERE id = $1
+`
+
+func (q *Queries) FindUserByID(ctx context.Context, id uuid.UUID) (IdentityUser, error) {
+	row := q.db.QueryRowContext(ctx, findUserByID, id)
+	var i IdentityUser
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Status,
+		&i.VerificationToken,
+		&i.TokenExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateUserStatus = `-- name: UpdateUserStatus :one
 UPDATE identity.users
 SET status = $2, verification_token = NULL, token_expires_at = NULL, updated_at = NOW()

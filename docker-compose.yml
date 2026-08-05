@@ -87,6 +87,8 @@ services:
       SMTP_FROM: lidar-processing@inbox.ru
       VERIFY_BASE_URL: https://localhost
       FRONTEND_URL: https://localhost
+      ACCESS_TOKEN_TTL: 1h
+      REFRESH_TOKEN_TTL: 720h
     depends_on:
       postgres:
         condition: service_healthy

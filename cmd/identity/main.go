@@ -19,7 +19,11 @@ import (
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/infrastructure/server"
 )
 
-const dbRetries = 10
+const (
+	dbRetries         = 10
+	defaultAccessTTL  = time.Hour           // 1h
+	defaultRefreshTTL = 30 * 24 * time.Hour // 30d
+)
 
 func main() {
 	// Database
@@ -84,12 +88,17 @@ func main() {
 		jwtSecret = hex.EncodeToString(b)
 		log.Println("WARNING: JWT_SECRET not set, using ephemeral secret — tokens will be invalidated on restart")
 	}
-	tokenService := auth.NewJWTTokenService(jwtSecret)
+	accessTTL := envDuration("ACCESS_TOKEN_TTL", defaultAccessTTL)
+	refreshTTL := envDuration("REFRESH_TOKEN_TTL", defaultRefreshTTL)
+	tokenService := auth.NewJWTTokenService(jwtSecret, accessTTL)
+	refreshTokenRepo := repository.NewPostgresRefreshTokenRepository(dbConn)
 
 	// Use cases
 	registerUC := application.NewRegisterUseCase(userRepo, mailSender)
 	verifyUC := application.NewVerifyUseCase(userRepo)
-	loginUC := application.NewLoginUseCase(userRepo, tokenService)
+	loginUC := application.NewLoginUseCase(userRepo, refreshTokenRepo, tokenService, accessTTL, refreshTTL)
+	refreshUC := application.NewRefreshUseCase(userRepo, refreshTokenRepo, tokenService, accessTTL, refreshTTL)
+	logoutUC := application.NewLogoutUseCase(refreshTokenRepo)
 
 	// HTTP server
 	frontendURL := os.Getenv("FRONTEND_URL")
@@ -97,7 +106,9 @@ func main() {
 	registerHandler := server.NewRegisterHandler(registerUC)
 	verifyLinkHandler := server.NewVerifyLinkHandler(verifyUC, frontendURL)
 	loginHandler := server.NewLoginHandler(loginUC)
-	router := server.NewRouter(registerHandler, verifyLinkHandler, loginHandler)
+	refreshHandler := server.NewRefreshHandler(refreshUC)
+	logoutHandler := server.NewLogoutHandler(logoutUC)
+	router := server.NewRouter(registerHandler, verifyLinkHandler, loginHandler, refreshHandler, logoutHandler)
 
 	addr := os.Getenv("HTTP_ADDR")
 	if addr == "" {
@@ -108,4 +119,19 @@ func main() {
 	if err := http.ListenAndServe(addr, router); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
+}
+
+// envDuration reads a duration from the environment with a fallback.
+// Invalid values are logged and the fallback is used.
+func envDuration(key string, fallback time.Duration) time.Duration {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		log.Printf("WARNING: invalid %s=%q, using %s", key, raw, fallback)
+		return fallback
+	}
+	return d
 }

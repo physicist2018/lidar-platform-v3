@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/domain"
 	"github.com/physcist2018/lidar-platform-v3/internal/identity/ports"
@@ -10,22 +11,32 @@ import (
 
 // LoginUseCase handles user authentication.
 type LoginUseCase struct {
-	repo  ports.UserRepository
-	token ports.TokenService
+	repo        ports.UserRepository
+	refreshRepo ports.RefreshTokenRepository
+	token       ports.TokenService
+	accessTTL   time.Duration
+	refreshTTL  time.Duration
 }
 
 // NewLoginUseCase creates a new LoginUseCase.
-func NewLoginUseCase(repo ports.UserRepository, token ports.TokenService) *LoginUseCase {
-	return &LoginUseCase{repo: repo, token: token}
+func NewLoginUseCase(
+	repo ports.UserRepository,
+	refreshRepo ports.RefreshTokenRepository,
+	token ports.TokenService,
+	accessTTL, refreshTTL time.Duration,
+) *LoginUseCase {
+	return &LoginUseCase{
+		repo:        repo,
+		refreshRepo: refreshRepo,
+		token:       token,
+		accessTTL:   accessTTL,
+		refreshTTL:  refreshTTL,
+	}
 }
 
-// LoginResult is returned on successful authentication.
-type LoginResult struct {
-	Token string `json:"token"`
-}
-
-// Execute authenticates a user and returns a JWT token.
-func (uc *LoginUseCase) Execute(ctx context.Context, emailStr, password string) (*LoginResult, error) {
+// Execute authenticates a user and returns an access token pair
+// (JWT access token + opaque refresh token).
+func (uc *LoginUseCase) Execute(ctx context.Context, emailStr, password, userAgent, ip string) (*TokenPair, error) {
 	// 1. Validate email format
 	email, err := domain.NewEmail(emailStr)
 	if err != nil {
@@ -52,11 +63,21 @@ func (uc *LoginUseCase) Execute(ctx context.Context, emailStr, password string) 
 		return nil, domain.ErrAccountNotVerified
 	}
 
-	// 5. Generate JWT
-	tokenStr, err := uc.token.GenerateToken(ctx, user.ID.String())
+	// 5. Generate access token
+	access, err := uc.token.GenerateToken(ctx, user.ID.String())
 	if err != nil {
 		return nil, err
 	}
 
-	return &LoginResult{Token: tokenStr}, nil
+	// 6. Issue a refresh token
+	refresh := domain.NewRefreshToken(user.ID, uc.refreshTTL, userAgent, ip)
+	if err := uc.refreshRepo.Create(ctx, &refresh); err != nil {
+		return nil, err
+	}
+
+	return &TokenPair{
+		Token:        access,
+		RefreshToken: refresh.Token,
+		ExpiresIn:    int64(uc.accessTTL.Seconds()),
+	}, nil
 }

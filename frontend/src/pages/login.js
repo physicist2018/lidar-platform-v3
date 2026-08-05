@@ -49,6 +49,7 @@ export function renderLogin(container) {
     try {
       const result = await login(email, password);
       localStorage.setItem("token", result.token);
+      localStorage.setItem("refresh_token", result.refresh_token);
       window.location.hash = "#/experiments";
     } catch (err) {
       errorEl.textContent = err.message;
