@@ -1,198 +1,200 @@
 # lidar-platform-v3
 
-Lidar data processing platform. Ingests raw LICEL archives, parses profiles,
-applies background correction, and prepares data for atmospheric analysis.
+Платформа обработки лидарных данных. Принимает сырые архивы LICEL, разбирает
+профили, выполняет коррекцию фона и готовит данные для атмосферного анализа.
 
-## Architecture
+## Архитектура
 
 ```
 Frontend SPA (Vite + vanilla JS)  — https://localhost / localhost:5173
-  ├── /login, /register          — auth via identity service
-  ├── /experiments               — list / detail / upload
-  └── /experiments/:id           — task management
+  ├── /login, /register          — авторизация через identity-сервис
+  ├── /experiments               — список / детали / загрузка
+  └── /experiments/:id           — управление задачами
 
-Nginx (SSL termination + routing)
+Nginx (SSL-терминация + маршрутизация)
   ├── / → frontend SPA
-  ├── /login, /register, /verify  → identity:8090
+  ├── /login, /register, /verify, /refresh, /logout → identity:8090
   ├── /api/*                     → lidar:8091
   └── /adminer/*                 → adminer:8080
 
 HTTP API (cmd/lidar)
-  ├── POST   /api/v1/experiments/create           — upload experiment files
-  ├── POST   /api/v1/experiments/task             — create processing task
-  ├── GET    /api/v1/experiments/list              — list experiments (with time filter)
-  ├── GET    /api/v1/tasks/{taskID}               — query async task status
-  ├── DELETE /api/v1/tasks/{taskID}               — delete task and results
-  ├── GET    /api/v1/prepared-profiles             — query processed profiles
-  ├── GET    /api/v1/prepared-profiles/experiments — list experiments with prepared data
-  ├── GET    /api/v1/prepared-profiles/filters     — available wavelength/polarization/device_id
-  └── GET    /health                              — health check (no auth)
+  ├── POST   /api/v1/experiments/create           — загрузка файлов эксперимента
+  ├── POST   /api/v1/experiments/task             — создание задачи обработки
+  ├── GET    /api/v1/experiments/list              — список экспериментов (с фильтром по времени)
+  ├── GET    /api/v1/tasks/{taskID}               — статус асинхронной задачи
+  ├── DELETE /api/v1/tasks/{taskID}               — удаление задачи и результатов
+  ├── GET    /api/v1/prepared-profiles             — запрос обработанных профилей
+  ├── GET    /api/v1/prepared-profiles/experiments — список экспериментов с prepared-данными
+  ├── GET    /api/v1/prepared-profiles/filters     — доступные wavelength/polarization/device_id
+  └── GET    /health                              — проверка здоровья (без авторизации)
 
-NATS JetStream — async task queue
-  ├── lidar.task.parse_experiment    — parse uploaded archive
-  ├── lidar.task.prepare_experiment   — background correction
-  └── lidar.task.process_experiment  — signal processing (planned)
+NATS JetStream — очередь асинхронных задач
+  ├── lidar.task.parse_experiment    — разбор загруженного архива
+  ├── lidar.task.prepare_experiment   — коррекция фона
+  └── lidar.task.process_experiment  — обработка сигнала (планируется)
 
 Worker (cmd/worker)
-  ├── ParseExperimentHandler   — downloads archive, creates LicelFile + LicelProfile records
-  └── PrepareExperimentHandler — background removal and profile trimming
+  ├── ParseExperimentHandler   — скачивает архив, создаёт записи LicelFile + LicelProfile
+  └── PrepareExperimentHandler — вычет фона и обрезка профилей
 
-PostgreSQL — domain storage
+PostgreSQL — хранилище доменных данных
   ├── experiments, licelfiles, licel_profiles, task_statuses
-  └── prepared_meta, prepared_profiles — processed data
+  └── prepared_meta, prepared_profiles — обработанные данные
 ```
 
-## Authentication
+## Аутентификация
 
-All `/api/v1/*` endpoints require a Bearer JWT issued by the identity service.
+Все эндпоинты `/api/v1/*` требуют Bearer JWT, выпущенный identity-сервисом.
 
-1. **Register** via identity service: `POST /register`
-2. **Verify** account (email link or manual via psql)
-3. **Login** to get a token pair: `POST /login`
-4. **Use access token** in requests to lidar API:
+1. **Регистрация** через identity-сервис: `POST /register`
+2. **Верификация** аккаунта (ссылка из письма или вручную через psql)
+3. **Вход** для получения пары токенов: `POST /login`
+4. **Использование access-токена** в запросах к lidar API:
 
 ```bash
 curl -H 'Authorization: Bearer <TOKEN>' http://localhost:8091/api/v1/tasks/<taskID>
 ```
 
-### Token pair (access + refresh)
+### Пара токенов (access + refresh)
 
-`POST /login` and `POST /refresh` return a token pair:
+`POST /login` и `POST /refresh` возвращают пару токенов:
 
 ```json
 { "token": "<jwt>", "refresh_token": "<opaque>", "expires_in": 3600 }
 ```
 
-- **Access token** — short-lived JWT (default **1h**, env `ACCESS_TOKEN_TTL`); sent as
-  `Authorization: Bearer` and validated by the lidar service.
-- **Refresh token** — long-lived opaque token (default **30d**, env `REFRESH_TOKEN_TTL`);
-  stored **hashed (SHA-256)** in `identity.refresh_tokens` and used only to obtain a new
-  pair. Each refresh **rotates** the token (the old one is revoked). Reuse of an already
-  revoked token is treated as theft and revokes all of the user's refresh tokens.
+- **Access token** — короткоживущий JWT (по умолчанию **1 час**, env `ACCESS_TOKEN_TTL`);
+  передаётся как `Authorization: Bearer` и валидируется lidar-сервисом.
+- **Refresh token** — долгоживущий opaque-токен (по умолчанию **30 дней**, env
+  `REFRESH_TOKEN_TTL`); хранится **в хэшированном виде (SHA-256)** в таблице
+  `identity.refresh_tokens` и используется только для получения новой пары. Каждый
+  refresh **ротирует** токен (старый отзывается, выдаётся новый). Повторное
+  использование уже отозванного токена расценивается как кража и отзывает **все**
+  refresh-токены пользователя.
 
-Endpoints:
+Эндпоинты:
 
-| Method | Path | Body | Description |
-|--------|------|------|-------------|
-| `POST` | `/refresh` | `{ "refresh_token": "..." }` | Rotate refresh token, return new pair |
-| `POST` | `/logout` | `{ "refresh_token": "..." }` | Revoke the refresh token (idempotent) |
+| Метод | Путь | Тело | Описание |
+|-------|------|------|----------|
+| `POST` | `/refresh` | `{ "refresh_token": "..." }` | Ротация refresh-токена, возврат новой пары |
+| `POST` | `/logout` | `{ "refresh_token": "..." }` | Отзыв refresh-токена (идемпотентный) |
 
-The frontend refreshes silently: on a `401` it performs a single-flight `POST /refresh`
-and retries the request once; only if refresh fails it clears the session and redirects
-to the login page.
+Фронтенд обновляет сессию незаметно: при `401` выполняется single-flight `POST /refresh`
+и запрос повторяется один раз; только при неудачном refresh сессия очищается и
+происходит редирект на страницу входа.
 
-The helper script `scripts/auth.sh` automates registration, login and refresh:
+Скрипт `scripts/auth.sh` автоматизирует регистрацию, вход и refresh:
 
 ```bash
-# Register + login
+# Регистрация + вход
 IDENTITY_URL=http://localhost:8090 ./scripts/auth.sh full user@example.com mypassword
 
-# Show saved access token
+# Показать сохранённый access-токен
 ./scripts/auth.sh token
 
-# Refresh the token pair
+# Обновить пару токенов
 ./scripts/auth.sh refresh
 ```
 
-Both identity and lidar services must share the same `JWT_SECRET` environment variable.
-In docker-compose, this is configured automatically.
+Identity и lidar-сервисы должны использовать один и тот же `JWT_SECRET`.
+В docker-compose это настроено автоматически.
 
-## Quick start
+## Быстрый старт
 
-### Docker Compose (full stack)
+### Docker Compose (полный стек)
 
 ```bash
-# Build frontend
+# Сборка фронтенда
 cd frontend && npm run build && cd ..
 
-# Start all services
+# Запуск всех сервисов
 docker compose up -d --build
 
-# Open https://localhost in browser
+# Открыть https://localhost в браузере
 ```
 
-### Development mode (hot reload)
+### Режим разработки (hot reload)
 
 ```bash
-# Terminal 1 — backend services
+# Терминал 1 — backend-сервисы
 docker compose up -d identity lidar worker nats minio postgres
 
-# Terminal 2 — frontend dev server
+# Терминал 2 — dev-сервер фронтенда
 cd frontend && npm run dev
-# → http://localhost:5173 (API proxies through nginx at https://localhost)
+# → http://localhost:5173 (API проксируется через nginx на https://localhost)
 ```
 
-### Local dev (without Docker)
+### Локальная разработка (без Docker)
 
 ```bash
-# Terminal 1 — identity service
+# Терминал 1 — identity-сервис
 bash run_identity.sh
 
-# Terminal 2 — lidar API + worker
+# Терминал 2 — lidar API + worker
 bash run_lidar.sh
 bash run_worker.sh
 
-# Terminal 3 — frontend
+# Терминал 3 — фронтенд
 cd frontend && npm run dev
 
-# Terminal 4 — register and login
+# Терминал 4 — регистрация и вход
 ./scripts/auth.sh full user@example.com mypassword
 ```
 
-## Project structure
+## Структура проекта
 
 ```
 cmd/
-├── lidar/          HTTP API server
-├── worker/         NATS consumer / task worker
-└── identity/       Authentication service
+├── lidar/          HTTP API сервер
+├── worker/         NATS consumer / worker задач
+└── identity/       Сервис аутентификации
 
 internal/
 ├── lidar/
 │   ├── application/    Use cases
-│   ├── config/         Configuration (JWT_SECRET, MinIO, NATS)
-│   ├── domain/         Domain entities
+│   ├── config/         Конфигурация (JWT_SECRET, MinIO, NATS)
+│   ├── domain/         Доменные сущности
 │   ├── infrastructure/ 
-│   │   ├── messaging/  NATS implementation
-│   │   ├── repository/ Postgres implementations (sqlc)
-│   │   ├── server/     HTTP handlers, router, JWT middleware
-│   │   └── storage/    MinIO implementation
-│   └── ports/          Port interfaces (repositories, message queue, file storage)
-└── worker/            Task handler interfaces + worker lifecycle
+│   │   ├── messaging/  Реализация NATS
+│   │   ├── repository/ Реализации Postgres (sqlc)
+│   │   ├── server/     HTTP-хендлеры, роутер, JWT middleware
+│   │   └── storage/    Реализация MinIO
+│   └── ports/          Интерфейсы портов (репозитории, очередь сообщений, файловое хранилище)
+└── worker/            Интерфейсы хендлеров задач + жизненный цикл worker'а
 
 frontend/
-├── index.html          SPA entry point
-├── vite.config.js      Proxy + build config
+├── index.html          Точка входа SPA
+├── vite.config.js      Proxy + конфиг сборки
 └── src/
-    ├── api.js          HTTP client (JWT, 401 redirect)
-    ├── router.js       Hash-based SPA router
-    ├── store.js        Application state
-    ├── styles.css      Full UI kit (cards, tables, forms, badges)
-    └── pages/          Login, register, verified, experiments, upload
+    ├── api.js          HTTP-клиент (JWT, silent refresh, 401)
+    ├── router.js       Hash-based SPA роутер
+    ├── store.js        Состояние приложения
+    ├── styles.css      Полный UI-кит (карточки, таблицы, формы, бейджи)
+    └── pages/          Login, register, verified, experiments, upload, prepared
 
 scripts/
-└── auth.sh            Auth helper script (register, login, token)
+└── auth.sh            Вспомогательный скрипт авторизации (register, login, refresh, token)
 
-migrations/lidar/      Goose SQL migrations
-queries/lidar/         sqlc query definitions
-pkg/db/lidar/          Generated sqlc Go code
+migrations/lidar/      Goose SQL-миграции
+queries/lidar/         Определения sqlc-запросов
+pkg/db/lidar/          Сгенерированный sqlc Go-код
 
 docs/
-├── async-tasks.md     Guide for adding async tasks with status tracking
-├── frontend.md        Guide for extending the frontend (pages, API, routing)
+├── async-tasks.md     Гайд по добавлению асинхронных задач со статусами
+├── frontend.md        Гайд по расширению фронтенда (страницы, API, роутинг)
 ```
 
-## Tests
+## Тесты
 
-Проект содержит **68 тестов** (Go backend), покрывающих ключевые компоненты.
+Проект содержит **97 тестов** (Go backend), покрывающих ключевые компоненты.
 
 ### Как запустить
 
 ```bash
-# Backend unit tests
+# Unit-тесты backend
 go test ./internal/...
 
-# Frontend build verification
+# Проверка сборки фронтенда
 cd frontend && npm run build
 ```
 
@@ -200,22 +202,26 @@ cd frontend && npm run build
 
 | Файл | Тестов | Что тестирует |
 |------|--------|---------------|
+| `identity/domain/refresh_token_test.go` | 5 | Генерация refresh-токенов, SHA-256 хэш, срок действия, revoke |
+| `identity/application/refresh_test.go` | 6 | RefreshUseCase (ротация, неизвестный/отозванный/истёкший токен, disabled-пользователь, orphan) |
+| `identity/application/logout_test.go` | 3 | LogoutUseCase (успех, идемпотентность) |
+| `identity/server/refresh_handler_test.go` | 7 | Хендлер POST /refresh, clientIP |
 | `server/auth_test.go` | 11 | JWT middleware |
-| `server/task_handler_test.go` | 8 | HandleCreateTask, HandleGetTaskStatus |
-| `server/router_test.go` | 4 | Health + auth checks |
-| `server/experiment_handler_test.go` | 9 | Experiment creation handler |
-| `domain/domain_test.go` | 16 | All domain entities |
+| `server/task_handler_test.go` | 7 | HandleCreateTask, HandleGetTaskStatus |
+| `server/router_test.go` | 4 | Health + проверки авторизации |
+| `server/experiment_handler_test.go` | 10 | Хендлер создания эксперимента |
+| `domain/domain_test.go` | 22 | Все доменные сущности |
 | `application/create_task_test.go` | 4 | CreateTaskUseCase (empty subject, empty task_type, success, idempotent) |
 | `application/get_task_status_test.go` | 3 | GetTaskStatusUseCase |
-| `repository/task_status_repo_test.go` | 7 | TaskStatusRepository (real PG via testcontainers) |
-| `worker/prepare_experiment_test.go` | 6 | processProfile core logic |
+| `repository/task_status_repo_test.go` | 8 | TaskStatusRepository (реальный PG через testcontainers) |
+| `worker/prepare_experiment_test.go` | 7 | Ключевая логика processProfile |
 
-## Dependencies
+## Зависимости
 
 - **Go** 1.22+
-- **PostgreSQL** — domain storage
-- **NATS JetStream** — async task queue
-- **MinIO** (S3-compatible) — raw file storage
-- **sqlc** — type-safe database queries
-- **Goose** — database migrations
-- **Node.js 20+** — frontend build
+- **PostgreSQL** — хранилище доменных данных
+- **NATS JetStream** — очередь асинхронных задач
+- **MinIO** (S3-совместимый) — хранилище сырых файлов
+- **sqlc** — типобезопасные SQL-запросы
+- **Goose** — миграции БД
+- **Node.js 20+** — сборка фронтенда
