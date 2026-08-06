@@ -130,8 +130,9 @@ func TestProcessProfile_BackgroundMean(t *testing.T) {
 
 	result, err := handler.processProfile(pp, meta, domain.BackgroundMean, payload)
 	assert.NoError(t, err)
-	// [100-425, 200-425, 300-425, 400-425, 500-425] = [-325, -225, -125, -25, 75]
-	assert.Equal(t, []float32{-325, -225, -125, -25, 75}, result.Data)
+	// The mean is subtracted from the median-filtered signal:
+	// [150-425, 200-425, 300-425, 400-425, 450-425] = [-275, -225, -125, -25, 25]
+	assert.Equal(t, []float32{-275, -225, -125, -25, 25}, result.Data)
 }
 
 func TestProcessProfile_BackgroundMean_TailStartOutOfRange(t *testing.T) {
@@ -158,8 +159,8 @@ func TestProcessProfile_BackgroundMean_TailStartOutOfRange(t *testing.T) {
 	assert.NoError(t, err)
 	// tailStart >= len(result) -> len/2 = 1
 	// median filtered: [150, 150], tail from 1: [150], mean = 150
-	// [100-150, 200-150] = [-50, 50]
-	assert.Equal(t, []float32{-50, 50}, result.Data)
+	// The mean is subtracted from the median-filtered signal: [0, 0]
+	assert.Equal(t, []float32{0, 0}, result.Data)
 }
 
 func TestProcessProfile_NoBackground(t *testing.T) {

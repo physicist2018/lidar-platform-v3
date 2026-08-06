@@ -178,6 +178,8 @@ scripts/
 migrations/lidar/      Goose SQL-миграции
 queries/lidar/         Определения sqlc-запросов
 pkg/db/lidar/          Сгенерированный sqlc Go-код
+pkg/smooth/tikhlidar/  Тихоновское сглаживание лидарных сигналов
+                       (сигмоидная подтяжка к молекулярному профилю)
 
 docs/
 ├── async-tasks.md     Гайд по добавлению асинхронных задач со статусами
@@ -225,3 +227,4 @@ cd frontend && npm run build
 - **sqlc** — типобезопасные SQL-запросы
 - **Goose** — миграции БД
 - **Node.js 20+** — сборка фронтенда
+- **gonum** — численные решатели (banded Cholesky, blas64) в `pkg/smooth/tikhlidar`

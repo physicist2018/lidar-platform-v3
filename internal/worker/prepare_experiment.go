@@ -232,9 +232,10 @@ func (h *PrepareExperimentHandler) processProfile(
 			}
 			if count > 0 {
 				mean := float32(sum / float64(count))
-				for i := range result {
-					result[i] -= mean
+				for i := range smoothed {
+					smoothed[i] -= mean
 				}
+				copy(result, smoothed)
 			}
 		}
 	}
