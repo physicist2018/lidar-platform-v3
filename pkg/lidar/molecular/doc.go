@@ -6,10 +6,11 @@
 // # Model
 //
 // The altitude along the beam is z(r) = r·cos(α) (flat-atmosphere
-// approximation), where α is the zenith angle. Temperature T(z) and pressure
-// P(z) are linearly interpolated from the atmosphere model; range points
-// outside the model altitude range are clamped to the model edges (a warning
-// is logged).
+// approximation), where α is the zenith angle. Temperature T(z) is linearly
+// interpolated from the atmosphere model; pressure P(z) is interpolated in log
+// space (barometric profile): the linear interpolation of ln P is
+// exponentiated. Range points outside the model altitude range are clamped to
+// the model edges (a warning is logged).
 //
 // The molecular number density follows the ideal gas law:
 //

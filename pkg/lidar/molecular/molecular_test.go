@@ -65,8 +65,8 @@ func TestCompute_WavelengthScaling(t *testing.T) {
 }
 
 func TestCompute_InterpolatedAtmosphere(t *testing.T) {
-	// Model with a strong gradient: the value at an intermediate altitude
-	// must be the linear interpolation of T and P.
+	// Model with a strong gradient: T is interpolated linearly, P in log
+	// space (barometric).
 	in := Input{
 		Range:       []float64{0, 5000}, // α=0 → altitude = range
 		ZenithAngle: 0,
@@ -80,11 +80,48 @@ func TestCompute_InterpolatedAtmosphere(t *testing.T) {
 	res, err := Compute(context.Background(), in)
 	require.NoError(t, err)
 
-	// At 5 km: T = -17.5 °C, P = 639 hPa.
-	// N = P/(k_B·T) with T = 255.65 K, P = 63900 Pa.
-	expectedDensity := 63900.0 / (boltzmann * 255.65)
+	// At 5 km: T = -17.5 °C (linear), P = √(1013·265) ≈ 518.1 hPa (geometric
+	// mean from log-space interpolation), not 639 hPa (linear mean).
+	tK := -17.5 + 273.15
+	pHPa := math.Sqrt(1013 * 265)
+	expectedDensity := (pHPa * 100) / (boltzmann * tK)
 	expectedBeta := expectedDensity * backscatterCrossSection(532)
 	assert.InDelta(t, expectedBeta, res.Backscatter[1], expectedBeta*1e-9, "βm at 5 km")
+
+	// Sanity: the log-space result differs from the linear one.
+	linearP := (1013.0 + 265.0) / 2
+	assert.Greater(t, linearP, pHPa)
+}
+
+func TestCompute_BarometricInterpolation(t *testing.T) {
+	// Barometric (isothermal) atmosphere P(z) = P0·exp(−z/H): log-space
+	// interpolation is exact at the midpoint, linear is not.
+	const H = 8000.0 // scale height, m
+	p0 := 1013.25
+	p10 := p0 * math.Exp(-10000/H) // hPa at 10 km
+
+	in := Input{
+		Range:       []float64{0, 5000, 10000}, // α=0 → altitude = range
+		ZenithAngle: 0,
+		Wavelength:  532,
+		Atmosphere: AtmosphereModel{
+			Altitude:    []float64{0, 10},
+			Temperature: []float64{15, 15}, // isothermal
+			Pressure:    []float64{p0, p10},
+		},
+	}
+	res, err := Compute(context.Background(), in)
+	require.NoError(t, err)
+
+	// Exact barometric pressure at 5 km and the resulting βm.
+	exactP := p0 * math.Exp(-5000/H)
+	exactDensity := (exactP * 100) / (boltzmann * (15 + 273.15))
+	exactBeta := exactDensity * backscatterCrossSection(532)
+	assert.InDelta(t, exactBeta, res.Backscatter[1], exactBeta*1e-9, "βm at 5 km")
+
+	// Linear interpolation would overestimate the pressure.
+	linearP := (p0 + p10) / 2
+	assert.Greater(t, linearP, exactP)
 }
 
 func TestCompute_HomogeneousTransmission(t *testing.T) {

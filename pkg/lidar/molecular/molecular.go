@@ -15,9 +15,10 @@ import (
 //	M(r) = βm(r)·T_m²(r),
 //
 // where z(r) = r·cos(α) is the altitude along the beam (flat atmosphere) and
-// T(z), P(z) are linearly interpolated from the atmosphere model, clamped to
-// the model edges when the beam goes outside the model altitude range (a
-// warning is logged in that case).
+// T(z) is linearly interpolated from the atmosphere model while P(z) is
+// interpolated in log space (barometric profile): the linear interpolation of
+// ln P is exponentiated. Both are clamped to the model edges when the beam
+// goes outside the model altitude range (a warning is logged in that case).
 func Compute(ctx context.Context, in Input) (*Result, error) {
 	if err := validate(in); err != nil {
 		return nil, err
@@ -40,17 +41,24 @@ func Compute(ctx context.Context, in Input) (*Result, error) {
 	}
 
 	// Interpolate temperature and pressure (clamped at the model edges).
+	// Pressure follows an approximately barometric (exponential) profile, so
+	// it is interpolated in log space: linear interpolation of ln P, then
+	// exponentiated.
+	logP := make([]float64, len(in.Atmosphere.Pressure))
+	for i := range logP {
+		logP[i] = math.Log(in.Atmosphere.Pressure[i])
+	}
 	tK := make([]float64, n)
 	pPa := make([]float64, n)
 	clamped := 0
 	for i := range alt {
 		tv, lo := interpolate(in.Atmosphere.Altitude, in.Atmosphere.Temperature, alt[i])
-		pv, hi := interpolate(in.Atmosphere.Altitude, in.Atmosphere.Pressure, alt[i])
+		lv, hi := interpolate(in.Atmosphere.Altitude, logP, alt[i])
 		if lo || hi {
 			clamped++
 		}
 		tK[i] = tv + 273.15
-		pPa[i] = pv * 100
+		pPa[i] = math.Exp(lv) * 100
 	}
 	if clamped > 0 {
 		model := in.Atmosphere
