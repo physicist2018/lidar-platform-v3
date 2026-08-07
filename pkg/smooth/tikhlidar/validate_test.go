@@ -48,7 +48,6 @@ func TestValidateProfile_Errors(t *testing.T) {
 		{"length mismatch", func(in *ProfileInput, p *ProfileParams) { in.Signal = in.Signal[:5] }, ErrLengthMismatch},
 		{"non-increasing range", func(in *ProfileInput, p *ProfileParams) { in.Range[3] = in.Range[2] }, ErrRangeNotIncreasing},
 		{"NaN in signal", func(in *ProfileInput, p *ProfileParams) { in.Signal[7] = nan() }, ErrNonFinite},
-		{"negative signal", func(in *ProfileInput, p *ProfileParams) { in.Signal[7] = -1 }, ErrSignalNegative},
 		{"non-positive model", func(in *ProfileInput, p *ProfileParams) { in.Model[7] = 0 }, ErrModelNonPositive},
 		{"nil weights", func(in *ProfileInput, p *ProfileParams) { in.Weights = nil }, ErrNilInput},
 		{"weights length mismatch", func(in *ProfileInput, p *ProfileParams) { in.Weights = in.Weights[:5] }, ErrLengthMismatch},

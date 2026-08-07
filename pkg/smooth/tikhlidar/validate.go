@@ -40,9 +40,6 @@ func validateProfile(in ProfileInput, p ProfileParams) error {
 		if math.IsNaN(in.Signal[i]) || math.IsInf(in.Signal[i], 0) {
 			return fmt.Errorf("%w: signal[%d]", ErrNonFinite, i)
 		}
-		if in.Signal[i] < 0 {
-			return fmt.Errorf("%w: signal[%d]=%g", ErrSignalNegative, i, in.Signal[i])
-		}
 	}
 	for i := range in.Model {
 		if math.IsNaN(in.Model[i]) || math.IsInf(in.Model[i], 0) {
@@ -122,9 +119,6 @@ func validateBatch(in BatchInput, p BatchParams) error {
 		for i := range in.Signals[k] {
 			if math.IsNaN(in.Signals[k][i]) || math.IsInf(in.Signals[k][i], 0) {
 				return fmt.Errorf("%w: signals[%d][%d]", ErrNonFinite, k, i)
-			}
-			if in.Signals[k][i] < 0 {
-				return fmt.Errorf("%w: signals[%d][%d]=%g", ErrSignalNegative, k, i, in.Signals[k][i])
 			}
 		}
 		for i := range in.Models[k] {

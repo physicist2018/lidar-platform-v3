@@ -7,7 +7,8 @@ type ProfileInput struct {
 	Range []float64
 
 	// Signal is the measured backscatter signal corrected for range squared
-	// (×r²), NOT corrected for transmission T².
+	// (×r²), NOT corrected for transmission T². Negative values (e.g. after
+	// background subtraction) are allowed.
 	Signal []float64
 
 	// Model is the modeled pure molecular backscatter signal (×r²).

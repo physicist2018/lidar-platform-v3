@@ -37,6 +37,21 @@
 // positive-definite pentadiagonal system, solved with gonum's banded Cholesky
 // factorization.
 //
+// Signals may contain negative values (e.g. after background subtraction);
+// the model must stay positive.
+//
+// # asinh (log-like) helpers
+//
+// SmoothProfileAsinh and SmoothBatchAsinh wrap the smoothing for signals with
+// a large dynamic range. The signal is first normalized by the calibration
+// constant C = median(S/M) over the anchor range (so the model and the signal
+// share a scale and the log-domain calibration offset vanishes), then both
+// the signal and the model are transformed with the variance-stabilizing
+// transform x → asinh(x/eps) (≈ ln(x) for x ≫ eps, linear for x ≪ eps), the
+// smoothing runs in the transformed domain with weights |S_t|, and the result
+// is transformed back with Ŝ = C·eps·sinh(Ŝ_t). eps is a small parameter
+// (typically 1e-6 .. 1e-3) relative to the model scale.
+//
 // # Batch of profiles
 //
 // SmoothBatch processes a set of profiles on a common range grid and adds

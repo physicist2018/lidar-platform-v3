@@ -15,7 +15,6 @@ var (
 	ErrInvalidParam        = errors.New("tikhlidar: invalid parameter")
 	ErrAnchorRange         = errors.New("tikhlidar: anchor range must contain at least two points of the range grid")
 	ErrModelNonPositive    = errors.New("tikhlidar: model must be positive")
-	ErrSignalNegative      = errors.New("tikhlidar: signal must be non-negative")
 	ErrNotPositiveDefinite = errors.New("tikhlidar: system matrix is not positive definite")
 	ErrNotConverged        = errors.New("tikhlidar: solver did not converge")
 )
