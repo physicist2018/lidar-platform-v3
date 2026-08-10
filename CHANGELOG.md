@@ -24,6 +24,18 @@
     масштаб `λ⁻⁴`, интерполяция и кламп, однородное пропускание
     `T² = exp(−2αr)`, геометрия зенитного угла, валидация.
 
+- **Пакет `pkg/lidar/ycf` + `cmd/ycf-molecular`** — HTTP-обработчик Yandex
+  Cloud Function для вызова `molecular.Compute`:
+  - `POST /` с телом `molecular.Input` (JSON, snake_case) → `molecular.Result`;
+    ошибки валидации → 400, не-POST → 405, прочее → 500.
+  - CORS-заголовки + обработка OPTIONS для вызовов из браузера.
+  - Точка входа `main.Handler`; локальный `main()` — dev-сервер (`HTTP_ADDR`,
+    по умолчанию `:8080`).
+  - 6 тестов (httptest): успех, snake_case JSON, невалидный JSON, ошибка
+    валидации, 405, CORS.
+- **json-теги** в `molecular.Input`/`AtmosphereModel`/`Result`
+  (`range`, `zenith_angle`, `wavelength`, `atmosphere`, `backscatter`...).
+
 ### Added
 - **Пакет `pkg/smooth/tikhlidar`** — тихоновское сглаживание лидарных сигналов
   со штрафом на вторую производную и сигмоидной подтяжкой к молекулярному

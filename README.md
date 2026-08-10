@@ -182,6 +182,8 @@ pkg/smooth/tikhlidar/  Тихоновское сглаживание лидар�
                        (сигмоидная подтяжка к молекулярному профилю)
 pkg/lidar/molecular/   Расчёт чисто молекулярного релеевского сигнала
                        (βm, αm, пропускание, range-corrected сигнал)
+pkg/lidar/ycf/         HTTP-обработчик Yandex Cloud Function для molecular.Compute
+cmd/ycf-molecular/     Точка входа деплоя YC-функции (main.Handler)
 
 docs/
 ├── async-tasks.md     Гайд по добавлению асинхронных задач со статусами
