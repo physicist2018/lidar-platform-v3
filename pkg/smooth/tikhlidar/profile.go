@@ -8,9 +8,9 @@ import (
 // SmoothProfile performs Tikhonov smoothing of a single range-corrected
 // backscatter signal with a sigmoid anchor to the molecular profile.
 //
-// The result Ŝ minimizes the objective
+// # The result Ŝ minimizes the objective
 //
-//	Φ(Ŝ) = Σ (1−w)(S − Ŝ)² + λ²·Σ (D²_r Ŝ)² + q·Σ w·(Ŝ − C·M)²,
+// Φ(Ŝ) = Σᵢ (1−wᵢ)·uᵢ·(Sᵢ − Ŝᵢ)² + λ²·Σᵢ (D²_r Ŝ)ᵢ² + q·Σᵢ wᵢ·(Ŝᵢ − C·Mᵢ)²,
 //
 // where w is the logistic sigmoid around Href with transition width L and C is
 // the anchoring constant estimated in [r0, r1].

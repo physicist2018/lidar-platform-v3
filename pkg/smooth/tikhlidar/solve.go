@@ -24,7 +24,7 @@ func assembleProfileSystem(n int, diag []float64, lambda float64, m *banded5) *m
 	band := mat.NewSymBandDense(n, 2, nil)
 	data := band.RawSymBand().Data
 	l2 := lambda * lambda
-	for i := 0; i < n; i++ {
+	for i := range n {
 		row := data[i*3 : i*3+3]
 		row[0] = diag[i] + l2*m.d0[i]
 		if i+1 < n {

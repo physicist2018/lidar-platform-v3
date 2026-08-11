@@ -85,7 +85,7 @@ func (m *banded5) add(i, j int, v float64) {
 func d2Td2(rows []triRow) *banded5 {
 	m := newBanded5(len(rows))
 	for k := range rows {
-		for a := 0; a < 3; a++ {
+		for a := range 3 {
 			for b := a; b < 3; b++ {
 				m.add(rows[k].cols[a], rows[k].cols[b], rows[k].vals[a]*rows[k].vals[b])
 			}
@@ -98,7 +98,7 @@ func d2Td2(rows []triRow) *banded5 {
 // part is skipped. The result is written into y (which must have length n).
 func applyD2T(rows []triRow, x []float64, scale float64, diag []float64, y []float64) {
 	n := len(x)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		y[i] = 0
 		if diag != nil {
 			y[i] = diag[i] * x[i]
@@ -106,14 +106,14 @@ func applyD2T(rows []triRow, x []float64, scale float64, diag []float64, y []flo
 	}
 	// d = D2·x
 	d := make([]float64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		d[i] = rows[i].vals[0]*x[rows[i].cols[0]] +
 			rows[i].vals[1]*x[rows[i].cols[1]] +
 			rows[i].vals[2]*x[rows[i].cols[2]]
 	}
 	// y += scale·D2ᵀ·d
-	for k := 0; k < n; k++ {
-		for a := 0; a < 3; a++ {
+	for k := range n {
+		for a := range 3 {
 			y[rows[k].cols[a]] += scale * rows[k].vals[a] * d[k]
 		}
 	}

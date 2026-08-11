@@ -60,7 +60,7 @@ func SmoothProfileAsinh(ctx context.Context, in ProfileInput, p ProfileParams, e
 	sT := make([]float64, n)
 	mT := make([]float64, n)
 	w := make([]float64, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		sT[i] = math.Asinh(in.Signal[i] / c / eps)
 		mT[i] = math.Asinh(in.Model[i] / eps)
 		w[i] = math.Abs(sT[i])
@@ -100,7 +100,7 @@ func SmoothBatchAsinh(ctx context.Context, in BatchInput, p BatchParams, eps flo
 	nt, n := len(in.Time), len(in.Range)
 
 	cs := make([]float64, nt)
-	for k := 0; k < nt; k++ {
+	for k := range nt {
 		c, err := calibrationConstant(in.Range, in.Signals[k], in.Models[k], p.AnchorRange[0], p.AnchorRange[1])
 		if err != nil {
 			return nil, fmt.Errorf("profile %d: %w", k, err)
@@ -114,11 +114,11 @@ func SmoothBatchAsinh(ctx context.Context, in BatchInput, p BatchParams, eps flo
 	sT := make([][]float64, nt)
 	mT := make([][]float64, nt)
 	w := make([][]float64, nt)
-	for k := 0; k < nt; k++ {
+	for k := range nt {
 		sT[k] = make([]float64, n)
 		mT[k] = make([]float64, n)
 		w[k] = make([]float64, n)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			sT[k][i] = math.Asinh(in.Signals[k][i] / cs[k] / eps)
 			mT[k][i] = math.Asinh(in.Models[k][i] / eps)
 			w[k][i] = math.Abs(sT[k][i])
@@ -132,8 +132,8 @@ func SmoothBatchAsinh(ctx context.Context, in BatchInput, p BatchParams, eps flo
 		return nil, err
 	}
 
-	for k := 0; k < nt; k++ {
-		for i := 0; i < n; i++ {
+	for k := range nt {
+		for i := range n {
 			res.SmoothedSignal[k][i] = cs[k] * eps * math.Sinh(res.SmoothedSignal[k][i])
 		}
 		res.Calibration[k] = cs[k]
